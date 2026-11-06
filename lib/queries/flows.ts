@@ -1,0 +1,140 @@
+import { cacheLife, cacheTag } from "next/cache";
+import { db, hasDb } from "../db";
+
+// Wallets with this many trades on a day (all tokens together) count as
+// "high-frequency" that day: bots / market makers / arbitrage. Without labels this
+// is the simplest honest split; the top wallets do thousands of trades per day.
+export const HF_TRADES_PER_DAY = 100;
+
+const plain = <T,>(rows: readonly T[]): T[] => rows.map((r) => ({ ...r }));
+
+/* ---------- Buy / sell pressure ---------- */
+
+export type PressureRow = { symbol: string; segment: "regular" | "hf"; buy: number; sell: number; wallets: number };
+export type PressureDay = { day: string; segment: "regular" | "hf"; buy: number; sell: number };
+
+export async function getPressure(topTokens = 12): Promise<{ tokens: PressureRow[]; days: PressureDay[] }> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("trades");
+  if (!hasDb()) return { tokens: [], days: [] };
+  const sql = db();
+  const tokens = await sql<PressureRow[]>`
+    WITH w AS (
+      SELECT day, wallet, SUM(trades) AS t FROM trades_daily GROUP BY 1, 2
+    ),
+    seg AS (
+      SELECT t.symbol, CASE WHEN w.t >= ${HF_TRADES_PER_DAY} THEN 'hf' ELSE 'regular' END AS segment,
+             t.wallet, COALESCE(t.buy_usd, 0) AS buy, COALESCE(t.sell_usd, 0) AS sell
+      FROM trades_daily t JOIN w USING (day, wallet)
+    ),
+    top AS (
+      SELECT symbol FROM seg GROUP BY 1 ORDER BY SUM(buy + sell) DESC LIMIT ${topTokens}
+    )
+    SELECT CASE WHEN symbol IN (SELECT symbol FROM top) THEN symbol ELSE 'Other' END AS symbol,
+           segment,
+           SUM(buy)::float8  AS buy,
+           SUM(sell)::float8 AS sell,
+           COUNT(DISTINCT wallet)::float8 AS wallets
+    FROM seg
+    GROUP BY 1, 2`;
+  const days = await sql<PressureDay[]>`
+    WITH w AS (
+      SELECT day, wallet, SUM(trades) AS t FROM trades_daily GROUP BY 1, 2
+    )
+    SELECT to_char(t.day, 'YYYY-MM-DD') AS day,
+           CASE WHEN w.t >= ${HF_TRADES_PER_DAY} THEN 'hf' ELSE 'regular' END AS segment,
+           SUM(COALESCE(t.buy_usd, 0)  - COALESCE(t.cross_usd, 0))::float8 AS buy,
+           SUM(COALESCE(t.sell_usd, 0) - COALESCE(t.cross_usd, 0))::float8 AS sell
+    FROM trades_daily t JOIN w USING (day, wallet)
+    GROUP BY 1, 2
+    ORDER BY 1`;
+  return { tokens: plain(tokens), days: plain(days) };
+}
+
+/* ---------- Flow: wallet type -> entry contract -> DEX -> token ---------- */
+
+export type FlowRow = { segment: string; entry: string; dex: string; symbol: string; volume: number };
+
+export async function getFlows(opts = { entries: 8, dexes: 6, tokens: 10 }): Promise<FlowRow[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("trades");
+  if (!hasDb()) return [];
+  return plain(
+    await db()<FlowRow[]>`
+      WITH w AS (
+        SELECT day, wallet, SUM(trades) AS t FROM trades_daily GROUP BY 1, 2
+      ),
+      base AS (
+        SELECT CASE WHEN w.t >= ${HF_TRADES_PER_DAY} THEN 'High-frequency' ELSE 'Regular' END AS segment,
+               COALESCE('0x' || encode(r.tx_to, 'hex'), 'unknown') AS entry,
+               COALESCE(r.project || CASE WHEN r.version <> '' THEN ' v' || r.version ELSE '' END, 'unknown') AS dex,
+               t.symbol,
+               COALESCE(t.buy_usd, 0) + COALESCE(t.sell_usd, 0) AS v
+        FROM trades_daily t
+        JOIN w USING (day, wallet)
+        LEFT JOIN routes r USING (route)
+      ),
+      te AS (SELECT entry  FROM base GROUP BY 1 ORDER BY SUM(v) DESC LIMIT ${opts.entries}),
+      td AS (SELECT dex    FROM base GROUP BY 1 ORDER BY SUM(v) DESC LIMIT ${opts.dexes}),
+      tt AS (SELECT symbol FROM base GROUP BY 1 ORDER BY SUM(v) DESC LIMIT ${opts.tokens})
+      SELECT segment,
+             CASE WHEN entry  IN (SELECT entry  FROM te) THEN entry  ELSE 'Other apps' END   AS entry,
+             CASE WHEN dex    IN (SELECT dex    FROM td) THEN dex    ELSE 'Other DEXs' END   AS dex,
+             CASE WHEN symbol IN (SELECT symbol FROM tt) THEN symbol ELSE 'Other stocks' END AS symbol,
+             SUM(v)::float8 AS volume
+      FROM base
+      GROUP BY 1, 2, 3, 4
+      HAVING SUM(v) > 0`,
+  );
+}
+
+/* ---------- Network: top wallets <-> tokens ---------- */
+
+export type NetWallet = { wallet: string; volume: number; trades: number; tokens: number; hf: boolean };
+export type NetEdge = { wallet: string; symbol: string; volume: number; buy: number; sell: number };
+export type NetToken = { symbol: string; volume: number };
+
+export async function getNetwork(topWallets = 60, topTokens = 15) {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("trades");
+  if (!hasDb()) return { wallets: [] as NetWallet[], tokens: [] as NetToken[], edges: [] as NetEdge[] };
+  const sql = db();
+  const tokens = plain(
+    await sql<NetToken[]>`
+      SELECT symbol, SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0))::float8 AS volume
+      FROM trades_daily GROUP BY 1 ORDER BY 2 DESC LIMIT ${topTokens}`,
+  );
+  const symbols = tokens.map((t) => t.symbol);
+  if (!symbols.length) return { wallets: [], tokens, edges: [] };
+  const wallets = plain(
+    await sql<NetWallet[]>`
+      WITH daily AS (
+        SELECT day, wallet, SUM(trades) AS t FROM trades_daily GROUP BY 1, 2
+      )
+      SELECT '0x' || encode(t.wallet, 'hex') AS wallet,
+             SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0))::float8 AS volume,
+             SUM(trades)::float8 AS trades,
+             COUNT(DISTINCT symbol)::float8 AS tokens,
+             bool_or(d.t >= ${HF_TRADES_PER_DAY}) AS hf
+      FROM trades_daily t JOIN daily d USING (day, wallet)
+      WHERE symbol = ANY(${symbols})
+      GROUP BY t.wallet
+      ORDER BY volume DESC
+      LIMIT ${topWallets}`,
+  );
+  const edges = plain(
+    await sql<NetEdge[]>`
+      SELECT '0x' || encode(wallet, 'hex') AS wallet, symbol,
+             SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0))::float8 AS volume,
+             SUM(COALESCE(buy_usd,0))::float8  AS buy,
+             SUM(COALESCE(sell_usd,0))::float8 AS sell
+      FROM trades_daily
+      WHERE symbol = ANY(${symbols})
+        AND wallet IN (SELECT decode(x, 'hex') FROM unnest(${wallets.map((w) => w.wallet.slice(2))}::text[]) AS x)
+      GROUP BY wallet, symbol`,
+  );
+  return { wallets, tokens, edges };
+}

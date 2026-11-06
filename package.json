@@ -10,6 +10,8 @@
     "migrate": "node scripts/migrate.mjs"
   },
   "dependencies": {
+    "d3-force": "^3.0.0",
+    "d3-sankey": "^0.12.3",
     "next": "16.4.5",
     "postgres": "^4.1.0",
     "react": "19.3.0",
@@ -17,6 +19,8 @@
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
+    "@types/d3-force": "^3.0.10",
+    "@types/d3-sankey": "^0.12.5",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

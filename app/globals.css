@@ -10,6 +10,11 @@
   --text-muted: #7a7974;
   --series-1: #2a78d6;
   --series-1-hover: #1c5cab;
+  --series-2: #eb6834;
+  --buy: #2a78d6;
+  --sell: #e34948;
+  --neutral-mark: #a9a8a2;
+  --link: #8f8e88;
   --good: #0ca30c;
   --critical: #d03b3b;
   --warning: #b07a00;
@@ -25,6 +30,11 @@
     --text-muted: #8f8e88;
     --series-1: #3987e5;
     --series-1-hover: #6da7ec;
+    --series-2: #d95926;
+    --buy: #3987e5;
+    --sell: #e66767;
+    --neutral-mark: #6b6a65;
+    --link: #8f8e88;
     --warning: #fab219;
   }
 }
@@ -37,6 +47,10 @@
   --color-ink-2: var(--text-secondary);
   --color-ink-3: var(--text-muted);
   --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
+  --color-buy: var(--buy);
+  --color-sell: var(--sell);
+  --color-neutral-mark: var(--neutral-mark);
   --color-good: var(--good);
   --color-critical: var(--critical);
   --color-warning: var(--warning);

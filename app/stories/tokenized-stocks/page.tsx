@@ -3,6 +3,10 @@ import { BarChart } from "@/components/BarChart";
 import { Card, Stat } from "@/components/Stat";
 import { int, num, usd } from "@/lib/format";
 import { getByDex, getByEntryContract, getByToken, getDaily, getOverview, type GroupRow } from "@/lib/queries/trades";
+import { FlowSankey } from "@/components/FlowSankey";
+import { NetworkGraph } from "@/components/NetworkGraph";
+import { PressureChart } from "@/components/PressureChart";
+import { getFlows, getNetwork, getPressure, HF_TRADES_PER_DAY } from "@/lib/queries/flows";
 
 export const metadata: Metadata = {
   title: "Tokenized Stocks on Base",
@@ -11,8 +15,9 @@ export const metadata: Metadata = {
 
 
 export default async function TokenizedStocks() {
-  const [overview, daily, tokens, dexes, entries] = await Promise.all([
+  const [overview, daily, tokens, dexes, entries, pressure, flows, network] = await Promise.all([
     getOverview(), getDaily(), getByToken(), getByDex(), getByEntryContract(),
+    getPressure(), getFlows(), getNetwork(),
   ]);
   const totalVol = tokens.reduce((s, t) => s + t.volume_usd, 0) || 1;
 
@@ -48,6 +53,21 @@ export default async function TokenizedStocks() {
               <BarChart unit="count" label="Daily active wallets" data={daily.map((d) => ({ x: d.day, y: d.wallets }))} />
             </Card>
           </div>
+
+          <Card
+            title="Buy and sell pressure"
+            sub={`Bought vs sold per stock. High-frequency = wallets with ${HF_TRADES_PER_DAY}+ trades that day (bots, market makers).`}
+          >
+            <PressureChart tokens={pressure.tokens} days={pressure.days} />
+          </Card>
+
+          <Card title="How the volume flows" sub="Wallet type → app or router the transaction called → DEX that executed it → stock. Hover to follow a path.">
+            <FlowSankey rows={flows} />
+          </Card>
+
+          <Card title="Who trades what" sub="The 60 largest wallets and the stocks they trade. Hover a wallet or stock to see its connections.">
+            <NetworkGraph wallets={network.wallets} tokens={network.tokens} edges={network.edges} />
+          </Card>
 
           <Card title="By token" sub="Volume share across all loaded days">
             <div className="overflow-x-auto">
