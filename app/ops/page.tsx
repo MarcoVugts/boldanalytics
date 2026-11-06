@@ -8,6 +8,7 @@ export const metadata: Metadata = { title: "Ingest runs", robots: { index: false
 const stateColor: Record<string, string> = {
   completed: "text-good",
   failed: "text-critical",
+  over_budget: "text-critical",
   pending: "text-warning",
 };
 
@@ -54,7 +55,7 @@ export default async function Ops() {
                 <td className="px-3 py-2">{r.start_date} → {r.end_date}</td>
                 <td className="px-3 py-2">{r.performance}</td>
                 <td className={`px-3 py-2 font-medium ${stateColor[r.state] ?? ""}`} title={r.error ?? undefined}>
-                  {r.state === "completed" ? "✓ " : r.state === "failed" ? "✕ " : "… "}{r.state}
+                  {r.state === "completed" ? "✓ " : r.state === "pending" ? "… " : "✕ "}{r.state}
                 </td>
                 <td className="px-3 py-2 text-right">{r.row_count != null ? int(r.row_count) : "—"}</td>
                 <td className="px-3 py-2 text-right">{r.datapoint_count != null ? int(r.datapoint_count) : "—"}</td>

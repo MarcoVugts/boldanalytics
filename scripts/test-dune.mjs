@@ -19,7 +19,7 @@ const call = async (path, init) => {
 const usage = async () => {
   try {
     const u = await call("/usage", { method: "POST", body: "{}" });
-    return u.billingPeriods?.at(-1)?.credits_used ?? null;
+    return (u.billing_periods ?? u.billingPeriods)?.at(-1)?.credits_used ?? null;
   } catch { return null; }
 };
 const usedBefore = await usage();

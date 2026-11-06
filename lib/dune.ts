@@ -115,11 +115,13 @@ export function estimateExportCredits(s: ExecutionStatus): number | null {
 /** Credits used in the current billing period (POST /usage is free). */
 export async function getUsage(): Promise<{ used: number; included: number } | null> {
   try {
-    const r = await dune<{ billingPeriods?: { credits_used: number; credits_included: number; end_date: string }[] }>(
-      "/usage",
-      { method: "POST", body: "{}" },
-    );
-    const p = r.billingPeriods?.at(-1);
+    type Period = { credits_used: number; credits_included: number; end_date: string };
+    // The API returns billing_periods (docs say billingPeriods); accept both.
+    const r = await dune<{ billing_periods?: Period[]; billingPeriods?: Period[] }>("/usage", {
+      method: "POST",
+      body: "{}",
+    });
+    const p = (r.billing_periods ?? r.billingPeriods)?.at(-1);
     return p ? { used: p.credits_used, included: p.credits_included } : null;
   } catch {
     return null; // informational only; never fail a load on this

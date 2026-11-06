@@ -27,6 +27,9 @@ const OVERLAP_DAYS = Number(process.env.INGEST_OVERLAP_DAYS ?? 1);
 const BACKFILL_START = process.env.INGEST_BACKFILL_START ?? "2026-08-12";
 const MAX_DAYS_PER_RUN = Number(process.env.INGEST_MAX_DAYS_PER_RUN ?? 14);
 const PERFORMANCE = (process.env.DUNE_PERFORMANCE ?? "medium") as Performance;
+// Export (pulling results) is billed per MB and dominates cost. The result size is
+// known after execution, so refuse to pull anything above this many credits.
+const MAX_EXPORT_CREDITS = Number(process.env.INGEST_MAX_EXPORT_CREDITS ?? 50);
 
 type DuneTradeRow = {
   day: string;
@@ -146,7 +149,15 @@ export async function runTradesIngest(opts: {
     return { action: "failed", runId, executionId, ...dates(window), message: status.state };
   }
 
-  // 3) Replace the window atomically: delete those days, insert the fresh result.
+  // 3) Cost guard: only execution has been paid so far. Don't export if it's too big.
+  const exportEst = estimateExportCredits(status);
+  if (exportEst != null && exportEst > MAX_EXPORT_CREDITS) {
+    const msg = `Export would cost ~${exportEst} credits (limit ${MAX_EXPORT_CREDITS}); results not pulled. Use a smaller window or raise INGEST_MAX_EXPORT_CREDITS.`;
+    await finish(runId, status, "over_budget", 0, msg);
+    return { action: "failed", runId, executionId, ...dates(window), exportCreditsEst: exportEst, message: msg };
+  }
+
+  // 4) Replace the window atomically: delete those days, insert the fresh result.
   //    (Upsert alone could leave stale rows if a combination disappears after Dune re-indexes.)
   let upserted = 0;
   const symbols = new Map<string, string>();
