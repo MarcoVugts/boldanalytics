@@ -10,6 +10,12 @@ const TOKENS = [
 ];
 const WALLETS = Array.from({ length: 400 }, (_, i) => "0x" + (i + 1).toString(16).padStart(40, "0"));
 const execs = new Map();
+const ROUTES = [
+  { route: 1234567890123, tx_to: "0x" + "0d".repeat(20), project: "aerodrome", version: "2", first_day: "2026-08-24" },
+  { route: 2234567890123, tx_to: "0x" + "1e".repeat(20), project: "uniswap", version: "3", first_day: "2026-08-24" },
+  { route: 3234567890123, tx_to: "0x" + "2f".repeat(20), project: "uniswap", version: "4", first_day: "2026-08-24" },
+];
+// Query ids: DUNE_QUERY_ROUTES must be 2 in .env.local for the mock; anything else = trades.
 
 function rowsFor(start, end) {
   const rows = [];
@@ -17,16 +23,15 @@ function rowsFor(start, end) {
     const day = d.toISOString().slice(0, 10);
     const weekend = [0, 6].includes(d.getUTCDay());
     const growth = 1 + (d - new Date("2026-08-24")) / 864e5 / 30;
-    for (const [ti, [token, symbol]] of TOKENS.entries()) {
+    for (const [ti, [, symbol]] of TOKENS.entries()) {
       const n = Math.max(0, Math.round((weekend ? 15 : 40) * growth / (ti + 1)));
       for (const w of WALLETS.slice((ti * 37 + d.getUTCDate() * 11) % 300).slice(0, n)) {
         const buy = Math.random() * 2000 * (ti === 1 ? 2 : 1), sell = Math.random() * 1500;
         const wi = parseInt(w.slice(-4), 16), t = 1 + Math.floor(Math.random() * 4);
-        const [project, version] = [["aerodrome", "2"], ["uniswap", "3"], ["uniswap", "4"]][wi % 3];
-        const tx_to = ["0x" + "0d".repeat(20), "0x" + "1e".repeat(20), "0x" + "2f".repeat(20)][wi % 3 === 0 ? 0 : wi % 2 + 1];
+        const route = ROUTES[wi % 3 === 0 ? 0 : (wi % 2) + 1].route;
         const cross = wi % 9 === 0 ? sell * 0.3 : 0;
-        rows.push({ day: `${day} 00:00:00.000 UTC`, wallet: w, taker: w, tx_to, project, version, token, symbol,
-          trades: t, swaps: t + (wi % 4 === 0 ? 1 : 0), cross_swaps: cross ? 1 : 0,
+        rows.push({ day: `${day}`, wallet: w, symbol, route,
+          trades: t, swaps: t + (wi % 4 === 0 ? 1 : 0),
           buy_usd: buy, sell_usd: sell, cross_usd: cross, buy_amount: buy / 200, sell_amount: sell / 200 });
       }
     }
@@ -42,7 +47,7 @@ createServer((req, res) => {
     let body = ""; req.on("data", (c) => (body += c)); req.on("end", () => {
       const p = JSON.parse(body || "{}").query_parameters ?? {};
       const id = "01MOCK" + randomBytes(6).toString("hex").toUpperCase();
-      const rows = rowsFor(p.start_date.slice(0, 10), p.end_date.slice(0, 10));
+      const rows = m[1] === "2" ? ROUTES : rowsFor(p.start_date.slice(0, 10), p.end_date.slice(0, 10));
       execs.set(id, { rows, at: Date.now(), query_id: Number(m[1]) });
       console.log("execute", m[1], p, "->", rows.length, "rows");
       send(200, { execution_id: id, state: "QUERY_STATE_PENDING" });
@@ -59,8 +64,8 @@ createServer((req, res) => {
       execution_id: m[1], query_id: e.query_id, is_execution_finished: done,
       state: done ? "QUERY_STATE_COMPLETED" : "QUERY_STATE_EXECUTING",
       execution_cost_credits: done ? Math.round(e.rows.length * 9 / 1000 + 10) / 1 : undefined,
-      result_metadata: done ? { row_count: e.rows.length, total_row_count: e.rows.length, datapoint_count: e.rows.length * 9,
-        execution_time_millis: 3200, pending_time_millis: 800, total_result_set_bytes: e.rows.length * 180 } : undefined,
+      result_metadata: done ? { row_count: e.rows.length, total_row_count: e.rows.length, datapoint_count: e.rows.length * 11,
+        execution_time_millis: 3200, pending_time_millis: 800, total_result_set_bytes: e.rows.length * 114 } : undefined,
     });
     const limit = Number(url.searchParams.get("limit") ?? 1000), offset = Number(url.searchParams.get("offset") ?? 0);
     const next = offset + limit < e.rows.length ? offset + limit : undefined;

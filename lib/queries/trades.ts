@@ -26,7 +26,7 @@ export async function getOverview(): Promise<Overview | null> {
   if (!hasDb()) return null;
   const [r] = await db()<Overview[]>`
     SELECT COALESCE(SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0) - COALESCE(cross_usd,0)), 0)::float8 AS volume_usd,
-           COALESCE(SUM(swaps - cross_swaps), 0)::float8                    AS trades,
+           COALESCE(SUM(swaps), 0)::float8                                  AS trades,
            COUNT(DISTINCT wallet)::float8                                   AS wallets,
            to_char(MIN(day), 'YYYY-MM-DD')                                  AS first_day,
            to_char(MAX(day), 'YYYY-MM-DD')                                  AS last_day
@@ -42,7 +42,7 @@ export async function getDaily(): Promise<DailyPoint[]> {
   return plain(await db()<DailyPoint[]>`
     SELECT to_char(day, 'YYYY-MM-DD')                                      AS day,
            SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0) - COALESCE(cross_usd,0))::float8 AS volume_usd,
-           SUM(swaps - cross_swaps)::float8                                AS trades,
+           SUM(swaps)::float8                                              AS trades,
            COUNT(DISTINCT wallet)::float8                                  AS wallets
     FROM trades_daily
     GROUP BY day
@@ -55,12 +55,11 @@ export async function getByToken(): Promise<TokenRow[]> {
   cacheTag("trades");
   if (!hasDb()) return [];
   return plain(await db()<TokenRow[]>`
-    SELECT COALESCE(tk.symbol, encode(t.token, 'hex'))                     AS symbol,
+    SELECT t.symbol,
            SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0))::float8          AS volume_usd,
            SUM(swaps)::float8                                              AS trades,
            COUNT(DISTINCT wallet)::float8                                  AS wallets
     FROM trades_daily t
-    LEFT JOIN tokens tk ON tk.address = t.token
     GROUP BY 1
     ORDER BY volume_usd DESC`);
 }
@@ -72,11 +71,12 @@ export async function getByDex(): Promise<GroupRow[]> {
   cacheTag("trades");
   if (!hasDb()) return [];
   return plain(await db()<GroupRow[]>`
-    SELECT project || CASE WHEN version <> '' THEN ' ' || version ELSE '' END AS key,
+    SELECT COALESCE(r.project || CASE WHEN r.version <> '' THEN ' ' || r.version ELSE '' END, 'unknown') AS key,
            SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0) - COALESCE(cross_usd,0))::float8 AS volume_usd,
-           SUM(swaps - cross_swaps)::float8 AS swaps,
+           SUM(swaps)::float8               AS swaps,
            COUNT(DISTINCT wallet)::float8   AS wallets
-    FROM trades_daily
+    FROM trades_daily t
+    LEFT JOIN routes r USING (route)
     GROUP BY 1
     ORDER BY volume_usd DESC`);
 }
@@ -88,12 +88,13 @@ export async function getByEntryContract(limit = 10): Promise<GroupRow[]> {
   cacheTag("trades");
   if (!hasDb()) return [];
   return plain(await db()<GroupRow[]>`
-    SELECT '0x' || encode(tx_to, 'hex') AS key,
+    SELECT COALESCE('0x' || encode(r.tx_to, 'hex'), 'unknown') AS key,
            SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0) - COALESCE(cross_usd,0))::float8 AS volume_usd,
-           SUM(swaps - cross_swaps)::float8 AS swaps,
+           SUM(swaps)::float8               AS swaps,
            COUNT(DISTINCT wallet)::float8   AS wallets
-    FROM trades_daily
-    GROUP BY tx_to
+    FROM trades_daily t
+    LEFT JOIN routes r USING (route)
+    GROUP BY 1
     ORDER BY volume_usd DESC
     LIMIT ${limit}`);
 }

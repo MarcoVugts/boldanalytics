@@ -3,7 +3,7 @@
 //   node --env-file=.env.local scripts/create-dune-queries.mjs            # create all
 //   node --env-file=.env.local scripts/create-dune-queries.mjs --private  # as private queries
 // Re-running updates queries whose id is already set in the env:
-//   DUNE_QUERY_TRADES / DUNE_QUERY_TRADES_SIZE / DUNE_QUERY_TOP_SENDERS
+//   DUNE_QUERY_TRADES / DUNE_QUERY_ROUTES / DUNE_QUERY_TRADES_SIZE / DUNE_QUERY_TOP_SENDERS
 import { readFile } from "node:fs/promises";
 
 const BASE = process.env.DUNE_API_BASE ?? "https://api.dune.com/api/v1";
@@ -22,6 +22,7 @@ const QUERIES = [
   { env: "DUNE_QUERY_TRADES_SIZE", file: "trades_daily_size.sql", name: "Tokenized stocks: trades_daily size check" },
   { env: "DUNE_QUERY_TOP_SENDERS", file: "top_senders.sql", name: "Tokenized stocks: top senders" },
   { env: "DUNE_QUERY_TRADES", file: "trades_daily.sql", name: "Tokenized stocks: trades_daily (loader)" },
+  { env: "DUNE_QUERY_ROUTES", file: "routes.sql", name: "Tokenized stocks: routes (loader)" },
 ];
 
 async function call(path, method, body) {

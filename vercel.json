@@ -3,7 +3,7 @@
   "framework": "nextjs",
   "crons": [
     {
-      "path": "/api/cron/trades",
+      "path": "/api/cron/daily",
       "schedule": "15 4 * * *"
     }
   ]

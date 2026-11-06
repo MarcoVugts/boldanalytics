@@ -1,19 +1,16 @@
--- Dune query: trades_daily
--- Grain: day x wallet (tx_from) x taker x tx_to x project x version x token
+-- Dune query: trades_daily  (loader, DUNE_QUERY_TRADES)
+-- Grain: day x wallet (tx_from) x symbol x route
 -- Parameters (type datetime, always 00:00:00 UTC):
 --   {{start_date}}  inclusive
 --   {{end_date}}    exclusive (normally "today", so only complete days)
 --
--- wallet  = tx_from: signer of the transaction (for ERC-4337 smart wallets this is the bundler)
--- taker   = address that receives the swap output (for smart wallets: the actual wallet)
--- tx_to   = contract the tx called: router / aggregator / interface
--- project = DEX venue that executed the swap
---
--- Volume: each token leg counts once. A swap between two tokenized stocks
--- (AAPL -> NVDA) appears on both tokens; cross_usd / cross_swaps carry it once
--- (on the sell leg) so totals can be de-duplicated:
---   true volume = SUM(buy_usd + sell_usd) - SUM(cross_usd)
---   true swaps  = SUM(swaps) - SUM(cross_swaps)
+-- Kept lean on purpose: export is billed per MB (Analyst: 10 credits/MB).
+-- Measured 2026-11-05: 26.7k rows, 3.0 MB (~30 credits) vs 8.6 MB for the wide version.
+--   wallet = tx_from (joinable address)
+--   symbol = token (AAPL, ...); addresses live in the tokens table (Coinbase API)
+--   route  = 53-bit id of (tx_to, project, version) -> see routes.sql
+-- Volume: per token leg. Stock->stock swaps (AAPL -> NVDA) appear on both tokens;
+-- cross_usd holds them once (sell leg): true volume = SUM(buy_usd + sell_usd) - SUM(cross_usd)
 WITH api AS (
     SELECT http_get('https://api.coinbase.com/v1/tokenized-stocks?page_size=500') AS resp
 ),
@@ -59,20 +56,14 @@ legs AS (
 SELECT
     day,
     tx_from                                                     AS wallet,
-    taker,
-    tx_to,
-    project,
-    version,
-    token,
     symbol,
+    bitwise_and(from_big_endian_64(xxhash64(tx_to || to_utf8(project || '/' || version))), 9007199254740991) AS route,
     COUNT(DISTINCT tx_hash)                                     AS trades,
     COUNT(*)                                                    AS swaps,
-    COUNT_IF(is_cross)                                          AS cross_swaps,
     SUM(IF(side = 'buy',  amount_usd, 0))                       AS buy_usd,
     SUM(IF(side = 'sell', amount_usd, 0))                       AS sell_usd,
     SUM(IF(is_cross,      amount_usd, 0))                       AS cross_usd,
     SUM(IF(side = 'buy',  amount, 0))                           AS buy_amount,
     SUM(IF(side = 'sell', amount, 0))                           AS sell_amount
 FROM legs
-GROUP BY 1, 2, 3, 4, 5, 6, 7, 8
-ORDER BY 1, 2, 7
+GROUP BY 1, 2, 3, 4
