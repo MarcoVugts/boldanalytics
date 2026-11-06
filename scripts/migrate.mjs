@@ -3,7 +3,11 @@ import { readdir, readFile } from "node:fs/promises";
 import postgres from "postgres";
 
 const url = process.env.DATABASE_URL;
-if (!url) throw new Error("DATABASE_URL is not set");
+if (!url) {
+  // Runs as part of `npm run build`; without a database there's nothing to migrate.
+  console.log("migrate: DATABASE_URL not set, skipping");
+  process.exit(0);
+}
 const sql = postgres(url, { ssl: /localhost|host=\/tmp/.test(url) ? false : "require", max: 1, onnotice: () => {} });
 
 await sql`CREATE TABLE IF NOT EXISTS schema_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`;

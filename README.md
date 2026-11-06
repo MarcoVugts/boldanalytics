@@ -35,13 +35,13 @@ Every execution is logged in `dune_runs`. See `/ops`.
 
 ## Setup
 
-1. **Dune**: create these queries (parameters `start_date`, `end_date`, both type *datetime*):
+1. **Dune**: `node --env-file=.env.local scripts/create-dune-queries.mjs` creates them via the API (Read/Write key), or create them by hand. The queries (parameters `start_date`, `end_date`, both type *datetime*):
    - `sql/dune/trades_daily_size.sql`: run first, in the Dune UI, over a few days. One row per day: rows per grain (`rows_full` = what the loader will pull), `usd_null_share`, senders vs takers.
    - `sql/dune/top_senders.sql`: one-off check for bundlers/relayers among `tx_from`.
    - `sql/dune/trades_daily.sql`: the loader query; put its id in `DUNE_QUERY_TRADES`.
 2. **Vercel**: import this repo as a new project. Add Neon via *Storage* (region us-east-1) → `DATABASE_URL` is set automatically.
 3. **Env vars** (see `.env.example`): `DUNE_API_KEY`, `DUNE_QUERY_TRADES`, `CRON_SECRET`.
-4. **Migrate**: `vercel env pull .env.local` then `node --env-file=.env.local scripts/migrate.mjs`.
+4. **Migrate**: runs automatically in `npm run build` (Vercel build) when `DATABASE_URL` is set.
 5. **Test Dune cost** for one day, before loading anything (pulls only 5 rows, prints execution credits, result size and estimated export credits):
    `node --env-file=.env.local scripts/test-dune.mjs 2026-11-05 2026-11-06`
 6. **First load** (repeat until it says `skipped`):
