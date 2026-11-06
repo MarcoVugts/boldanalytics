@@ -20,7 +20,7 @@ Neon Postgres ──► cached reads ('use cache', tag "trades") ──► /stor
 **Incremental, to keep Dune cost low**
 
 - Window is `[start, end)` with `end = today 00:00 UTC` → only complete days.
-- `start = last completed run's end − 1 day` → each daily run scans ~2 days (yesterday, plus one day of overlap for late-indexed data). The days in the window are replaced in one transaction (delete + insert).
+- `start = last completed run's end` (`INGEST_OVERLAP_DAYS=0`) → each daily run exports exactly one new day. An overlap day costs a full extra day of export. The days in the window are replaced in one transaction (delete + insert).
 - Already up to date → Dune is **not** called (no credits).
 - First run backfills from `INGEST_BACKFILL_START` in chunks of `INGEST_MAX_DAYS_PER_RUN` days; call the route again to continue.
 - If a Dune execution takes longer than the function budget, it's stored as `pending` and the next call resumes it instead of paying for a new execution.

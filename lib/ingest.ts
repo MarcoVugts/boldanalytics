@@ -2,8 +2,8 @@
 //
 // Each run asks Dune only for [start, end) where
 //   end   = today 00:00 UTC          (only complete days)
-//   start = last loaded end - OVERLAP (re-fetch the newest day once, in case Dune indexed it late)
-// so a normal daily run scans ~2 days. If nothing new is due, Dune is not called at all.
+//   start = last loaded end - OVERLAP (default 0)
+// so a normal daily run exports exactly one new day (overlap costs a full extra day of export).
 //
 // A run that doesn't finish within the function's time budget is stored as `pending`
 // with its execution_id; the next invocation picks it up instead of paying for a new one.
@@ -23,7 +23,7 @@ import {
 } from "./dune";
 
 const DATASET = "trades";
-const OVERLAP_DAYS = Number(process.env.INGEST_OVERLAP_DAYS ?? 1);
+const OVERLAP_DAYS = Number(process.env.INGEST_OVERLAP_DAYS ?? 0);
 const BACKFILL_START = process.env.INGEST_BACKFILL_START ?? "2026-08-12";
 const MAX_DAYS_PER_RUN = Number(process.env.INGEST_MAX_DAYS_PER_RUN ?? 14);
 const PERFORMANCE = (process.env.DUNE_PERFORMANCE ?? "medium") as Performance;
