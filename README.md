@@ -27,7 +27,7 @@ Kept lean because Dune export costs 10 credits/MB on Analyst. Measured for 2026-
 - Window is `[start, end)` with `end = today 00:00 UTC` → only complete days.
 - `start = last completed run's end` (`INGEST_OVERLAP_DAYS=0`) → each daily run exports exactly one new day. An overlap day costs a full extra day of export. The days in the window are replaced in one transaction (delete + insert).
 - Already up to date → Dune is **not** called (no credits).
-- First run backfills from `INGEST_BACKFILL_START` in chunks of `INGEST_MAX_DAYS_PER_RUN` days; call the route again to continue.
+- The very first run loads only yesterday. History is loaded deliberately: `/api/cron/daily?start=2026-10-01&maxExport=250` (max `INGEST_MAX_DAYS_PER_RUN` days per call; call again with `start` = the returned `endDate`).
 - If a Dune execution takes longer than the function budget, it's stored as `pending` and the next call resumes it instead of paying for a new execution.
 
 Every execution is logged in `dune_runs`. See `/ops`.
@@ -49,8 +49,8 @@ Every execution is logged in `dune_runs`. See `/ops`.
 4. **Migrate**: runs automatically in `npm run build` (Vercel build) when `DATABASE_URL` is set.
 5. **Test Dune cost** for one day, before loading anything (pulls only 5 rows, prints execution credits, result size and estimated export credits):
    `node --env-file=.env.local scripts/test-dune.mjs 2026-11-05 2026-11-06`
-6. **First load**: backfill runs in 7-day chunks; each call stops if the export would exceed `INGEST_MAX_EXPORT_CREDITS` (default 50). Raise it per call for the backfill:
-   `curl -H "Authorization: Bearer $CRON_SECRET" "https://<deployment>/api/cron/daily?maxExport=250"`
+6. **First load**: Vercel → Settings → Cron Jobs → Run. Loads yesterday only. For history, call with `?start=YYYY-MM-DD` (7 days per call, continue with `start` = returned `endDate`); each call stops if the export would exceed `INGEST_MAX_EXPORT_CREDITS` (default 50), raise per call with `&maxExport=250`:
+   `curl -H "Authorization: Bearer $CRON_SECRET" "https://<deployment>/api/cron/daily?start=2026-10-01&maxExport=250"`
 
 Manual window: `/api/cron/trades?start=2026-11-01&end=2026-11-03` (doesn't affect the incremental position unless it's the newest completed run).
 

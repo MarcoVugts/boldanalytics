@@ -28,7 +28,6 @@ import {
 } from "./dune";
 
 const OVERLAP_DAYS = Number(process.env.INGEST_OVERLAP_DAYS ?? 0);
-const BACKFILL_START = process.env.INGEST_BACKFILL_START ?? "2026-08-12";
 const MAX_DAYS_PER_RUN = Number(process.env.INGEST_MAX_DAYS_PER_RUN ?? 7);
 const PERFORMANCE = (process.env.DUNE_PERFORMANCE ?? "medium") as Performance;
 const MAX_EXPORT_CREDITS = Number(process.env.INGEST_MAX_EXPORT_CREDITS ?? 50);
@@ -120,7 +119,8 @@ const minDay = (a: string, b: string) => (a < b ? a : b);
 /** Next window to load for a dataset, based on its completed runs. */
 export async function nextWindow(dataset: string, override?: { start?: string; end?: string }): Promise<Window> {
   const end = override?.end ?? iso(new Date());
-  if (override?.start) return { start: override.start, end };
+  // Manual window (history): same chunk size; call again with start = returned endDate.
+  if (override?.start) return { start: override.start, end: minDay(end, addDays(override.start, MAX_DAYS_PER_RUN)) };
 
   const [last] = await db()<{ end_date: string | null }[]>`
     SELECT to_char(MAX(end_date), 'YYYY-MM-DD') AS end_date
@@ -129,7 +129,8 @@ export async function nextWindow(dataset: string, override?: { start?: string; e
   // Already loaded up to `end`: nothing to do.
   if (last.end_date && last.end_date >= end) return { start: end, end };
 
-  const start = last.end_date ? addDays(last.end_date, -OVERLAP_DAYS) : BACKFILL_START;
+  // First run ever: only yesterday. Load history deliberately with ?start=YYYY-MM-DD.
+  const start = last.end_date ? addDays(last.end_date, -OVERLAP_DAYS) : addDays(end, -1);
   // Backfill in chunks so a single run stays small; call again to continue.
   return { start, end: minDay(end, addDays(start, MAX_DAYS_PER_RUN)) };
 }
