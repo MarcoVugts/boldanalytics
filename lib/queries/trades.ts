@@ -15,8 +15,9 @@ export type Overview = {
   last_day: string | null;
 };
 
-// Note: volume is summed per token leg. A direct token→token swap (AAPLc→NVDAc)
-// counts on both tokens, so the cross-token total slightly overstates true volume.
+// Volume is stored per token leg. A stock→stock swap (AAPL→NVDA) appears on both
+// tokens; cross_usd / cross_swaps hold it once so cross-token totals subtract it.
+export type GroupRow = { key: string; volume_usd: number; swaps: number; wallets: number };
 
 export async function getOverview(): Promise<Overview | null> {
   "use cache";
@@ -24,8 +25,8 @@ export async function getOverview(): Promise<Overview | null> {
   cacheTag("trades");
   if (!hasDb()) return null;
   const [r] = await db()<Overview[]>`
-    SELECT COALESCE(SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0)), 0)::float8 AS volume_usd,
-           COALESCE(SUM(trades), 0)::int8::float8                           AS trades,
+    SELECT COALESCE(SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0) - COALESCE(cross_usd,0)), 0)::float8 AS volume_usd,
+           COALESCE(SUM(swaps - cross_swaps), 0)::float8                    AS trades,
            COUNT(DISTINCT wallet)::float8                                   AS wallets,
            to_char(MIN(day), 'YYYY-MM-DD')                                  AS first_day,
            to_char(MAX(day), 'YYYY-MM-DD')                                  AS last_day
@@ -40,8 +41,8 @@ export async function getDaily(): Promise<DailyPoint[]> {
   if (!hasDb()) return [];
   return plain(await db()<DailyPoint[]>`
     SELECT to_char(day, 'YYYY-MM-DD')                                      AS day,
-           SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0))::float8          AS volume_usd,
-           SUM(trades)::float8                                             AS trades,
+           SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0) - COALESCE(cross_usd,0))::float8 AS volume_usd,
+           SUM(swaps - cross_swaps)::float8                                AS trades,
            COUNT(DISTINCT wallet)::float8                                  AS wallets
     FROM trades_daily
     GROUP BY day
@@ -56,12 +57,45 @@ export async function getByToken(): Promise<TokenRow[]> {
   return plain(await db()<TokenRow[]>`
     SELECT COALESCE(tk.symbol, encode(t.token, 'hex'))                     AS symbol,
            SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0))::float8          AS volume_usd,
-           SUM(trades)::float8                                             AS trades,
+           SUM(swaps)::float8                                              AS trades,
            COUNT(DISTINCT wallet)::float8                                  AS wallets
     FROM trades_daily t
     LEFT JOIN tokens tk ON tk.address = t.token
     GROUP BY 1
     ORDER BY volume_usd DESC`);
+}
+
+/** Volume by DEX venue (project + version). */
+export async function getByDex(): Promise<GroupRow[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("trades");
+  if (!hasDb()) return [];
+  return plain(await db()<GroupRow[]>`
+    SELECT project || CASE WHEN version <> '' THEN ' ' || version ELSE '' END AS key,
+           SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0) - COALESCE(cross_usd,0))::float8 AS volume_usd,
+           SUM(swaps - cross_swaps)::float8 AS swaps,
+           COUNT(DISTINCT wallet)::float8   AS wallets
+    FROM trades_daily
+    GROUP BY 1
+    ORDER BY volume_usd DESC`);
+}
+
+/** Volume by the contract the tx called (router / aggregator / interface). */
+export async function getByEntryContract(limit = 10): Promise<GroupRow[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("trades");
+  if (!hasDb()) return [];
+  return plain(await db()<GroupRow[]>`
+    SELECT '0x' || encode(tx_to, 'hex') AS key,
+           SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0) - COALESCE(cross_usd,0))::float8 AS volume_usd,
+           SUM(swaps - cross_swaps)::float8 AS swaps,
+           COUNT(DISTINCT wallet)::float8   AS wallets
+    FROM trades_daily
+    GROUP BY tx_to
+    ORDER BY volume_usd DESC
+    LIMIT ${limit}`);
 }
 
 export type RunRow = {

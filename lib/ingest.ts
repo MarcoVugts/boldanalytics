@@ -31,11 +31,18 @@ const PERFORMANCE = (process.env.DUNE_PERFORMANCE ?? "medium") as Performance;
 type DuneTradeRow = {
   day: string;
   wallet: string;
+  taker: string;
+  tx_to: string;
+  project: string;
+  version: string | null;
   token: string;
   symbol: string;
   trades: number;
+  swaps: number;
+  cross_swaps: number;
   buy_usd: number | null;
   sell_usd: number | null;
+  cross_usd: number | null;
   buy_amount: number | null;
   sell_amount: number | null;
 };
@@ -139,34 +146,40 @@ export async function runTradesIngest(opts: {
     return { action: "failed", runId, executionId, ...dates(window), message: status.state };
   }
 
-  // 3) Load results in batches (upsert, so overlapping days are simply overwritten).
+  // 3) Replace the window atomically: delete those days, insert the fresh result.
+  //    (Upsert alone could leave stale rows if a combination disappears after Dune re-indexes.)
   let upserted = 0;
   const symbols = new Map<string, string>();
-  for await (const page of resultPages<DuneTradeRow>(executionId)) {
-    for (let i = 0; i < page.length; i += 1000) {
-      const batch = page.slice(i, i + 1000).map((r) => {
-        symbols.set(r.token, r.symbol);
-        return {
-          day: String(r.day).slice(0, 10),
-          wallet: hexToBytes(r.wallet),
-          token: hexToBytes(r.token),
-          trades: Number(r.trades),
-          buy_usd: r.buy_usd,
-          sell_usd: r.sell_usd,
-          buy_amount: r.buy_amount,
-          sell_amount: r.sell_amount,
-        };
-      });
-      if (!batch.length) continue;
-      await sql`
-        INSERT INTO trades_daily ${sql(batch)}
-        ON CONFLICT (day, wallet, token) DO UPDATE SET
-          trades = EXCLUDED.trades,
-          buy_usd = EXCLUDED.buy_usd, sell_usd = EXCLUDED.sell_usd,
-          buy_amount = EXCLUDED.buy_amount, sell_amount = EXCLUDED.sell_amount`;
-      upserted += batch.length;
+  await sql.begin(async (tx) => {
+    await tx`DELETE FROM trades_daily WHERE day >= ${window.start} AND day < ${window.end}`;
+    for await (const page of resultPages<DuneTradeRow>(executionId)) {
+      for (let i = 0; i < page.length; i += 1000) {
+        const batch = page.slice(i, i + 1000).map((r) => {
+          symbols.set(r.token, r.symbol);
+          return {
+            day: String(r.day).slice(0, 10),
+            wallet: hexToBytes(r.wallet),
+            taker: hexToBytes(r.taker),
+            tx_to: hexToBytes(r.tx_to),
+            project: r.project,
+            version: r.version ?? "",
+            token: hexToBytes(r.token),
+            trades: Number(r.trades),
+            swaps: Number(r.swaps),
+            cross_swaps: Number(r.cross_swaps ?? 0),
+            buy_usd: r.buy_usd,
+            sell_usd: r.sell_usd,
+            cross_usd: r.cross_usd,
+            buy_amount: r.buy_amount,
+            sell_amount: r.sell_amount,
+          };
+        });
+        if (!batch.length) continue;
+        await tx`INSERT INTO trades_daily ${tx(batch)}`;
+        upserted += batch.length;
+      }
     }
-  }
+  });
 
   if (symbols.size) {
     const tokens = [...symbols].map(([address, symbol]) => ({ address: hexToBytes(address), symbol }));

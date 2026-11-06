@@ -15,10 +15,12 @@ Neon Postgres ──► cached reads ('use cache', tag "trades") ──► /stor
                                                        └────► /ops (runs, credits, DB size)
 ```
 
+**trades_daily grain**: day × wallet (`tx_from`) × `taker` × `tx_to` (router/aggregator) × `project`/`version` (DEX) × token, with trades, swaps, buy/sell USD and token amounts. `cross_usd`/`cross_swaps` let totals count stock→stock swaps once.
+
 **Incremental, to keep Dune cost low**
 
 - Window is `[start, end)` with `end = today 00:00 UTC` → only complete days.
-- `start = last completed run's end − 1 day` → each daily run scans ~2 days (yesterday, plus one day of overlap for late-indexed data). Overlapping rows are overwritten by the upsert.
+- `start = last completed run's end − 1 day` → each daily run scans ~2 days (yesterday, plus one day of overlap for late-indexed data). The days in the window are replaced in one transaction (delete + insert).
 - Already up to date → Dune is **not** called (no credits).
 - First run backfills from `INGEST_BACKFILL_START` in chunks of `INGEST_MAX_DAYS_PER_RUN` days; call the route again to continue.
 - If a Dune execution takes longer than the function budget, it's stored as `pending` and the next call resumes it instead of paying for a new execution.
@@ -33,7 +35,10 @@ Every execution is logged in `dune_runs`. See `/ops`.
 
 ## Setup
 
-1. **Dune**: create a new query with the SQL from `sql/dune/trades_daily.sql`, set both parameters (`start_date`, `end_date`) to type *datetime*, save, and note the query id.
+1. **Dune**: create these queries (parameters `start_date`, `end_date`, both type *datetime*):
+   - `sql/dune/trades_daily_size.sql`: run first, in the Dune UI, over a few days. One row per day: rows per grain (`rows_full` = what the loader will pull), `usd_null_share`, senders vs takers.
+   - `sql/dune/top_senders.sql`: one-off check for bundlers/relayers among `tx_from`.
+   - `sql/dune/trades_daily.sql`: the loader query; put its id in `DUNE_QUERY_TRADES`.
 2. **Vercel**: import this repo as a new project. Add Neon via *Storage* (region us-east-1) → `DATABASE_URL` is set automatically.
 3. **Env vars** (see `.env.example`): `DUNE_API_KEY`, `DUNE_QUERY_TRADES`, `CRON_SECRET`.
 4. **Migrate**: `vercel env pull .env.local` then `node --env-file=.env.local scripts/migrate.mjs`.

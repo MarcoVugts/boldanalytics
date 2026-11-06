@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { BarChart } from "@/components/BarChart";
 import { Card, Stat } from "@/components/Stat";
 import { int, num, usd } from "@/lib/format";
-import { getByToken, getDaily, getOverview } from "@/lib/queries/trades";
+import { getByDex, getByEntryContract, getByToken, getDaily, getOverview, type GroupRow } from "@/lib/queries/trades";
 
 export const metadata: Metadata = {
   title: "Tokenized Stocks on Base",
@@ -11,7 +11,9 @@ export const metadata: Metadata = {
 
 
 export default async function TokenizedStocks() {
-  const [overview, daily, tokens] = await Promise.all([getOverview(), getDaily(), getByToken()]);
+  const [overview, daily, tokens, dexes, entries] = await Promise.all([
+    getOverview(), getDaily(), getByToken(), getByDex(), getByEntryContract(),
+  ]);
   const totalVol = tokens.reduce((s, t) => s + t.volume_usd, 0) || 1;
 
   return (
@@ -32,8 +34,8 @@ export default async function TokenizedStocks() {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <Stat label="DEX volume" value={usd(overview.volume_usd)} note="buy + sell legs, USD" />
-            <Stat label="Trades" value={num(overview.trades)} note="one tx = one trade" />
+            <Stat label="DEX volume" value={usd(overview.volume_usd)} note="USD, stock-to-stock swaps counted once" />
+            <Stat label="Swaps" value={num(overview.trades)} note="dex.trades rows, de-duplicated" />
             <Stat label="Unique wallets" value={num(overview.wallets)} note="by tx sender" />
             <Stat label="Days covered" value={int(daily.length)} note={`${overview.first_day} → ${overview.last_day}`} />
           </div>
@@ -55,7 +57,7 @@ export default async function TokenizedStocks() {
                     <th className="py-2 pr-4 font-normal">Token</th>
                     <th className="py-2 pr-4 text-right font-normal">Volume</th>
                     <th className="py-2 pr-4 font-normal">Share</th>
-                    <th className="py-2 pr-4 text-right font-normal">Trades</th>
+                    <th className="py-2 pr-4 text-right font-normal">Swaps</th>
                     <th className="py-2 text-right font-normal">Wallets</th>
                   </tr>
                 </thead>
@@ -81,6 +83,15 @@ export default async function TokenizedStocks() {
             </div>
           </Card>
 
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card title="By DEX" sub="Where the swap executed">
+              <GroupTable rows={dexes} label="DEX" />
+            </Card>
+            <Card title="By entry contract" sub="Contract the transaction called (router / aggregator), top 10">
+              <GroupTable rows={entries} label="Contract" mono />
+            </Card>
+          </div>
+
           <details className="rounded-lg border border-border bg-surface-1 p-4 text-sm">
             <summary className="cursor-pointer text-ink-2">Daily data table</summary>
             <table className="mt-3 w-full">
@@ -99,10 +110,42 @@ export default async function TokenizedStocks() {
           </details>
 
           <p className="text-xs text-ink-3">
-            Volume counts each token leg; a direct token-to-token swap (e.g. AAPL → NVDA) counts on both tokens, so the all-token total is slightly overstated.
+            Totals count a stock-to-stock swap (e.g. AAPL → NVDA) once; the per-token table counts it on both tokens.
           </p>
         </>
       )}
+    </div>
+  );
+}
+
+function GroupTable({ rows, label, mono }: { rows: GroupRow[]; label: string; mono?: boolean }) {
+  const total = rows.reduce((s, r) => s + r.volume_usd, 0) || 1;
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="text-left text-xs text-ink-3">
+          <tr className="border-b border-border">
+            <th className="py-2 pr-4 font-normal">{label}</th>
+            <th className="py-2 pr-4 text-right font-normal">Volume</th>
+            <th className="py-2 pr-4 text-right font-normal">Share</th>
+            <th className="py-2 pr-4 text-right font-normal">Swaps</th>
+            <th className="py-2 text-right font-normal">Wallets</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.key} className="border-b border-border last:border-0">
+              <td className={`py-2 pr-4 ${mono ? "font-mono text-xs" : "font-medium"}`} title={r.key}>
+                {mono ? `${r.key.slice(0, 8)}…${r.key.slice(-6)}` : r.key}
+              </td>
+              <td className="py-2 pr-4 text-right">{usd(r.volume_usd)}</td>
+              <td className="py-2 pr-4 text-right text-ink-2">{((r.volume_usd / total) * 100).toFixed(1)}%</td>
+              <td className="py-2 pr-4 text-right">{int(r.swaps)}</td>
+              <td className="py-2 text-right">{int(r.wallets)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

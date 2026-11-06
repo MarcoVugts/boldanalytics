@@ -21,8 +21,13 @@ function rowsFor(start, end) {
       const n = Math.max(0, Math.round((weekend ? 15 : 40) * growth / (ti + 1)));
       for (const w of WALLETS.slice((ti * 37 + d.getUTCDate() * 11) % 300).slice(0, n)) {
         const buy = Math.random() * 2000 * (ti === 1 ? 2 : 1), sell = Math.random() * 1500;
-        rows.push({ day: `${day} 00:00:00.000 UTC`, wallet: w, token, symbol, trades: 1 + Math.floor(Math.random() * 4),
-          buy_usd: buy, sell_usd: sell, buy_amount: buy / 200, sell_amount: sell / 200 });
+        const wi = parseInt(w.slice(-4), 16), t = 1 + Math.floor(Math.random() * 4);
+        const [project, version] = [["aerodrome", "2"], ["uniswap", "3"], ["uniswap", "4"]][wi % 3];
+        const tx_to = ["0x" + "0d".repeat(20), "0x" + "1e".repeat(20), "0x" + "2f".repeat(20)][wi % 3 === 0 ? 0 : wi % 2 + 1];
+        const cross = wi % 9 === 0 ? sell * 0.3 : 0;
+        rows.push({ day: `${day} 00:00:00.000 UTC`, wallet: w, taker: w, tx_to, project, version, token, symbol,
+          trades: t, swaps: t + (wi % 4 === 0 ? 1 : 0), cross_swaps: cross ? 1 : 0,
+          buy_usd: buy, sell_usd: sell, cross_usd: cross, buy_amount: buy / 200, sell_amount: sell / 200 });
       }
     }
   }
