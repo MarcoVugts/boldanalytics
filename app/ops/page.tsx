@@ -18,14 +18,22 @@ export default async function Ops() {
       <header>
         <h1 className="text-2xl font-bold tracking-tight">Ingest runs &amp; Dune cost</h1>
         <p className="mt-1 text-sm text-ink-2">
-          Every Dune execution the loader made. Check credits against dune.com → Settings → Usage.
+          Every Dune execution the loader made. Execution credits come from Dune; export credits are estimated from result size (Analyst: 10 credits per MB).
         </p>
       </header>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Runs (all time)" value={int(totals?.runs ?? 0)} />
-        <Stat label="Credits, last 30 days" value={totals?.credits_30d != null ? num(totals.credits_30d) : "—"} note="as reported by Dune" />
-        <Stat label="Datapoints, last 30 days" value={num(totals?.datapoints_30d ?? 0)} note="rows × columns exported" />
+        <Stat
+          label="Loader credits, last 30 days"
+          value={num((totals?.exec_credits_30d ?? 0) + (totals?.export_credits_30d ?? 0))}
+          note={`execution ${num(totals?.exec_credits_30d ?? 0)} + export ≈${num(totals?.export_credits_30d ?? 0)}`}
+        />
+        <Stat
+          label="Dune billing period"
+          value={totals?.period_used != null ? `${num(totals.period_used)} / ${num(totals.period_included ?? 0)}` : "—"}
+          note="all account usage, from Dune /usage"
+        />
         <Stat label="Database size" value={totals ? bytes(totals.db_bytes) : "—"} note="Neon free: 0.5–1 GB" />
       </div>
 
@@ -33,7 +41,7 @@ export default async function Ops() {
         <table className="w-full text-sm">
           <thead className="text-left text-xs text-ink-3">
             <tr className="border-b border-border">
-              {["Started (UTC)", "Dataset", "Window (end excl.)", "Engine", "State", "Rows", "Datapoints", "Credits", "Exec", "Upserted"].map((h) => (
+              {["Started (UTC)", "Dataset", "Window (end excl.)", "Engine", "State", "Rows", "Datapoints", "Exec credits", "Export ≈", "Exec", "Upserted"].map((h) => (
                 <th key={h} className="px-3 py-2 font-normal whitespace-nowrap">{h}</th>
               ))}
             </tr>
@@ -51,12 +59,13 @@ export default async function Ops() {
                 <td className="px-3 py-2 text-right">{r.row_count != null ? int(r.row_count) : "—"}</td>
                 <td className="px-3 py-2 text-right">{r.datapoint_count != null ? int(r.datapoint_count) : "—"}</td>
                 <td className="px-3 py-2 text-right">{r.cost_credits != null ? num(r.cost_credits) : "—"}</td>
+                <td className="px-3 py-2 text-right">{r.export_credits_est != null ? num(r.export_credits_est) : "—"}</td>
                 <td className="px-3 py-2 text-right">{r.execution_ms != null ? `${(r.execution_ms / 1000).toFixed(1)}s` : "—"}</td>
                 <td className="px-3 py-2 text-right">{r.rows_upserted != null ? int(r.rows_upserted) : "—"}</td>
               </tr>
             ))}
             {!runs.length && (
-              <tr><td colSpan={10} className="px-3 py-6 text-center text-ink-3">No runs yet.</td></tr>
+              <tr><td colSpan={11} className="px-3 py-6 text-center text-ink-3">No runs yet.</td></tr>
             )}
           </tbody>
         </table>

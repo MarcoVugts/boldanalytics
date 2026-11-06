@@ -10,8 +10,10 @@
 
 import { db, hexToBytes } from "./db";
 import {
+  estimateExportCredits,
   executeQuery,
   extractCredits,
+  getUsage,
   isDone,
   isSuccess,
   resultPages,
@@ -46,6 +48,8 @@ export type IngestResult = {
   endDate?: string;
   rowsUpserted?: number;
   credits?: number | null;
+  exportCreditsEst?: number | null;
+  periodCreditsUsed?: number | null;
   datapoints?: number | null;
   message?: string;
 };
@@ -172,6 +176,10 @@ export async function runTradesIngest(opts: {
   }
 
   await finish(runId, status, "completed", upserted);
+  const usage = await getUsage();
+  if (usage) {
+    await sql`UPDATE dune_runs SET period_credits_used = ${usage.used}, period_credits_included = ${usage.included} WHERE id = ${runId}`;
+  }
   return {
     action: "completed",
     runId,
@@ -179,6 +187,8 @@ export async function runTradesIngest(opts: {
     ...dates(window),
     rowsUpserted: upserted,
     credits: extractCredits(status),
+    exportCreditsEst: estimateExportCredits(status),
+    periodCreditsUsed: usage?.used ?? null,
     datapoints: status.result_metadata?.datapoint_count ?? null,
   };
 }
@@ -199,6 +209,7 @@ async function finish(runId: number, s: ExecutionStatus, state: string, upserted
       execution_ms    = ${m.execution_time_millis ?? null},
       pending_ms      = ${m.pending_time_millis ?? null},
       cost_credits    = ${extractCredits(s)},
+      export_credits_est = ${estimateExportCredits(s)},
       rows_upserted   = ${upserted},
       status_json     = ${db().json(s as never)},
       finished_at     = now()

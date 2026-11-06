@@ -16,6 +16,14 @@ const call = async (path, init) => {
   return r.json();
 };
 
+const usage = async () => {
+  try {
+    const u = await call("/usage", { method: "POST", body: "{}" });
+    return u.billingPeriods?.at(-1)?.credits_used ?? null;
+  } catch { return null; }
+};
+const usedBefore = await usage();
+
 console.log(`query ${QUERY}  window [${start}, ${end})  engine ${performance}`);
 const t0 = Date.now();
 const { execution_id } = await call(`/query/${QUERY}/execute`, {
@@ -35,8 +43,23 @@ do {
 } while (/PENDING|EXECUTING/.test(s.state));
 console.log();
 
+// Only pull 5 rows here: export is billed per MB, so the test stays cheap.
 const preview = await call(`/execution/${execution_id}/results?limit=5`);
-console.log("\nfull status response (look for cost/credit fields):");
-console.log(JSON.stringify(s, null, 2));
+const m = s.result_metadata ?? {};
+const bytes = m.total_result_set_bytes ?? m.result_set_bytes ?? 0;
+const perMb = Number(process.env.DUNE_EXPORT_CREDITS_PER_MB ?? 10);
+const usedAfter = await usage();
+
 console.log("\nfirst rows:");
 console.table(preview.result?.rows ?? []);
+console.log(`
+state                 ${s.state}
+rows                  ${m.total_row_count ?? m.row_count}
+datapoints            ${m.datapoint_count}
+result size           ${(bytes / 1e6).toFixed(2)} MB
+execution time        ${((m.execution_time_millis ?? 0) / 1000).toFixed(1)}s (+${((m.pending_time_millis ?? 0) / 1000).toFixed(1)}s queued)
+execution credits     ${s.execution_cost_credits ?? "not reported"}
+export credits (est.) ${((bytes / 1e6) * perMb).toFixed(2)}   ← if the loader pulls all rows (${perMb}/MB)
+billing period used   ${usedBefore ?? "?"} → ${usedAfter ?? "?"} (may lag a bit)
+`);
+if (s.error) console.log("error:", JSON.stringify(s.error, null, 2));

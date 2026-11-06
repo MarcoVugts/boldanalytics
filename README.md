@@ -23,7 +23,13 @@ Neon Postgres ──► cached reads ('use cache', tag "trades") ──► /stor
 - First run backfills from `INGEST_BACKFILL_START` in chunks of `INGEST_MAX_DAYS_PER_RUN` days; call the route again to continue.
 - If a Dune execution takes longer than the function budget, it's stored as `pending` and the next call resumes it instead of paying for a new execution.
 
-Every execution is logged in `dune_runs` (rows, datapoints, credits if Dune reports them, raw status JSON). See `/ops`.
+Every execution is logged in `dune_runs`. See `/ops`.
+
+**What a run costs on Dune** (from docs.dune.com/api-reference/overview/billing):
+- *Execution*: compute-based, reported per run as `execution_cost_credits` → stored as `cost_credits`.
+- *Export*: pulling results costs **10 credits per MB on Analyst** (2 on Plus) → estimated from result size as `export_credits_est`. Keep result columns minimal.
+- Status, usage and polling calls are free. After each run the loader stores the billing-period total from `POST /v1/usage`.
+- Analyst = 4,000 credits/month.
 
 ## Setup
 
@@ -31,9 +37,8 @@ Every execution is logged in `dune_runs` (rows, datapoints, credits if Dune repo
 2. **Vercel**: import this repo as a new project. Add Neon via *Storage* (region us-east-1) → `DATABASE_URL` is set automatically.
 3. **Env vars** (see `.env.example`): `DUNE_API_KEY`, `DUNE_QUERY_TRADES`, `CRON_SECRET`.
 4. **Migrate**: `vercel env pull .env.local` then `node --env-file=.env.local scripts/migrate.mjs`.
-5. **Test Dune cost** for one day, before loading anything:
+5. **Test Dune cost** for one day, before loading anything (pulls only 5 rows, prints execution credits, result size and estimated export credits):
    `node --env-file=.env.local scripts/test-dune.mjs 2026-11-05 2026-11-06`
-   Compare with dune.com → Settings → Usage.
 6. **First load** (repeat until it says `skipped`):
    `curl -H "Authorization: Bearer $CRON_SECRET" https://<deployment>/api/cron/trades`
 

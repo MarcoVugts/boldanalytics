@@ -8,6 +8,7 @@ export type Performance = "medium" | "large";
 export type ExecutionStatus = {
   execution_id: string;
   query_id?: number;
+  execution_cost_credits?: number;
   state: string; // QUERY_STATE_PENDING | _EXECUTING | _COMPLETED | _FAILED | _CANCELLED | _EXPIRED ...
   is_execution_finished?: boolean;
   submitted_at?: string;
@@ -95,13 +96,32 @@ export async function* resultPages<Row = Record<string, unknown>>(executionId: s
   }
 }
 
-/**
- * Dune's status response may carry a cost field; its exact name isn't something
- * we want to hard-depend on, so look for any numeric key mentioning credits/cost.
- */
+/** Execution credits as billed by Dune (source of truth per their docs). */
 export function extractCredits(s: ExecutionStatus): number | null {
-  for (const [k, v] of Object.entries(s)) {
-    if (/credit|cost/i.test(k) && typeof v === "number") return v;
+  return typeof s.execution_cost_credits === "number" ? s.execution_cost_credits : null;
+}
+
+/**
+ * Export is billed separately per MB of results pulled (Analyst: 10, Plus: 2).
+ * Estimate from the result size Dune reports.
+ */
+export function estimateExportCredits(s: ExecutionStatus): number | null {
+  const bytes = s.result_metadata?.total_result_set_bytes ?? s.result_metadata?.result_set_bytes;
+  if (bytes == null) return null;
+  const perMb = Number(process.env.DUNE_EXPORT_CREDITS_PER_MB ?? 10);
+  return Math.round((bytes / 1e6) * perMb * 100) / 100;
+}
+
+/** Credits used in the current billing period (POST /usage is free). */
+export async function getUsage(): Promise<{ used: number; included: number } | null> {
+  try {
+    const r = await dune<{ billingPeriods?: { credits_used: number; credits_included: number; end_date: string }[] }>(
+      "/usage",
+      { method: "POST", body: "{}" },
+    );
+    const p = r.billingPeriods?.at(-1);
+    return p ? { used: p.credits_used, included: p.credits_included } : null;
+  } catch {
+    return null; // informational only; never fail a load on this
   }
-  return null;
 }

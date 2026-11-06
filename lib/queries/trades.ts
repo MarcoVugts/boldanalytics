@@ -76,6 +76,7 @@ export type RunRow = {
   row_count: number | null;
   datapoint_count: number | null;
   cost_credits: number | null;
+  export_credits_est: number | null;
   execution_ms: number | null;
   rows_upserted: number | null;
   started_at: string;
@@ -93,6 +94,7 @@ export async function getRuns(limit = 50): Promise<RunRow[]> {
            performance, state, error, row_count,
            datapoint_count::float8 AS datapoint_count,
            cost_credits::float8    AS cost_credits,
+           export_credits_est::float8 AS export_credits_est,
            execution_ms, rows_upserted,
            to_char(started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI') AS started_at
     FROM dune_runs
@@ -105,11 +107,20 @@ export async function getRunTotals() {
   cacheLife("hours");
   cacheTag("runs");
   if (!hasDb()) return null;
-  const [r] = await db()<{ runs: number; credits_30d: number | null; datapoints_30d: number | null; db_bytes: number }[]>`
+  const [r] = await db()<{
+    runs: number;
+    exec_credits_30d: number | null;
+    export_credits_30d: number | null;
+    period_used: number | null;
+    period_included: number | null;
+    db_bytes: number;
+  }[]>`
     SELECT COUNT(*)::float8 AS runs,
-           SUM(cost_credits) FILTER (WHERE started_at > now() - interval '30 days')::float8    AS credits_30d,
-           SUM(datapoint_count) FILTER (WHERE started_at > now() - interval '30 days')::float8 AS datapoints_30d,
-           pg_database_size(current_database())::float8                                         AS db_bytes
+           SUM(cost_credits) FILTER (WHERE started_at > now() - interval '30 days')::float8       AS exec_credits_30d,
+           SUM(export_credits_est) FILTER (WHERE started_at > now() - interval '30 days')::float8 AS export_credits_30d,
+           (SELECT period_credits_used::float8 FROM dune_runs WHERE period_credits_used IS NOT NULL ORDER BY id DESC LIMIT 1)     AS period_used,
+           (SELECT period_credits_included::float8 FROM dune_runs WHERE period_credits_used IS NOT NULL ORDER BY id DESC LIMIT 1) AS period_included,
+           pg_database_size(current_database())::float8 AS db_bytes
     FROM dune_runs`;
   return { ...r };
 }

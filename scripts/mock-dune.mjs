@@ -44,6 +44,9 @@ createServer((req, res) => {
     });
     return;
   }
+  if (req.method === "POST" && url.pathname.endsWith("/usage")) {
+    return send(200, { billingPeriods: [{ start_date: "2026-11-01", end_date: "2026-12-01", credits_used: 1234.5, credits_included: 4000 }] });
+  }
   if ((m = url.pathname.match(/\/execution\/([^/]+)\/(status|results)$/))) {
     const e = execs.get(m[1]); if (!e) return send(404, { error: "not found" });
     const done = Date.now() - e.at > 4000;
