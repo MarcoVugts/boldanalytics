@@ -1,0 +1,64 @@
+# Bold Analytics
+
+Site + data pipeline for boldanalytics.io. Next.js (App Router, Cache Components) on Vercel, Neon Postgres, data from Dune.
+
+## How the data flows
+
+```
+Dune saved query (sql/dune/trades_daily.sql, params start_date/end_date)
+   │  POST /query/{id}/execute  → poll status → page through results
+   ▼
+/api/cron/trades  (Vercel cron, daily 04:15 UTC)
+   │  upsert wallet × token × day into trades_daily, log run + cost in dune_runs
+   ▼
+Neon Postgres ──► cached reads ('use cache', tag "trades") ──► /stories/tokenized-stocks
+                                                       └────► /ops (runs, credits, DB size)
+```
+
+**Incremental, to keep Dune cost low**
+
+- Window is `[start, end)` with `end = today 00:00 UTC` → only complete days.
+- `start = last completed run's end − 1 day` → each daily run scans ~2 days (yesterday, plus one day of overlap for late-indexed data). Overlapping rows are overwritten by the upsert.
+- Already up to date → Dune is **not** called (no credits).
+- First run backfills from `INGEST_BACKFILL_START` in chunks of `INGEST_MAX_DAYS_PER_RUN` days; call the route again to continue.
+- If a Dune execution takes longer than the function budget, it's stored as `pending` and the next call resumes it instead of paying for a new execution.
+
+Every execution is logged in `dune_runs` (rows, datapoints, credits if Dune reports them, raw status JSON). See `/ops`.
+
+## Setup
+
+1. **Dune**: create a new query with the SQL from `sql/dune/trades_daily.sql`, set both parameters (`start_date`, `end_date`) to type *datetime*, save, and note the query id.
+2. **Vercel**: import this repo as a new project. Add Neon via *Storage* (region us-east-1) → `DATABASE_URL` is set automatically.
+3. **Env vars** (see `.env.example`): `DUNE_API_KEY`, `DUNE_QUERY_TRADES`, `CRON_SECRET`.
+4. **Migrate**: `vercel env pull .env.local` then `node --env-file=.env.local scripts/migrate.mjs`.
+5. **Test Dune cost** for one day, before loading anything:
+   `node --env-file=.env.local scripts/test-dune.mjs 2026-11-05 2026-11-06`
+   Compare with dune.com → Settings → Usage.
+6. **First load** (repeat until it says `skipped`):
+   `curl -H "Authorization: Bearer $CRON_SECRET" https://<deployment>/api/cron/trades`
+
+Manual window: `/api/cron/trades?start=2026-11-01&end=2026-11-03` (doesn't affect the incremental position unless it's the newest completed run).
+
+## Local development (no Dune key needed)
+
+```bash
+node scripts/mock-dune.mjs                       # fake Dune API on :4010
+cp .env.example .env.local                       # set DUNE_API_BASE=http://localhost:4010/api/v1 and DATABASE_URL
+node --env-file=.env.local scripts/migrate.mjs
+npm run dev
+curl -H "Authorization: Bearer $CRON_SECRET" localhost:3000/api/cron/trades
+```
+
+## Layout
+
+```
+app/stories/tokenized-stocks   data story page
+app/ops                        ingest runs & cost (noindex)
+app/api/cron/[job]             loaders (trades; balances/wallets later)
+lib/dune.ts                    Dune client: execute, poll, paginate
+lib/ingest.ts                  incremental window + upsert + run log
+lib/queries/                   cached Postgres reads for pages
+sql/dune/                      Dune query sources
+sql/migrations/                Postgres schema
+scripts/                       migrate, test-dune, mock-dune
+```

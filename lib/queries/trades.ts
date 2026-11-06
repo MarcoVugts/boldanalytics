@@ -1,0 +1,115 @@
+import { cacheLife, cacheTag } from "next/cache";
+import { db, hasDb } from "../db";
+
+// All reads are cached ('use cache') and refreshed when the cron loader calls
+// revalidateTag("trades" | "runs"), so page views don't hit the database.
+const plain = <T,>(rows: readonly T[]): T[] => rows.map((r) => ({ ...r }));
+
+export type DailyPoint = { day: string; volume_usd: number; trades: number; wallets: number };
+export type TokenRow = { symbol: string; volume_usd: number; trades: number; wallets: number };
+export type Overview = {
+  volume_usd: number;
+  trades: number;
+  wallets: number;
+  first_day: string | null;
+  last_day: string | null;
+};
+
+// Note: volume is summed per token leg. A direct token→token swap (AAPLc→NVDAc)
+// counts on both tokens, so the cross-token total slightly overstates true volume.
+
+export async function getOverview(): Promise<Overview | null> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("trades");
+  if (!hasDb()) return null;
+  const [r] = await db()<Overview[]>`
+    SELECT COALESCE(SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0)), 0)::float8 AS volume_usd,
+           COALESCE(SUM(trades), 0)::int8::float8                           AS trades,
+           COUNT(DISTINCT wallet)::float8                                   AS wallets,
+           to_char(MIN(day), 'YYYY-MM-DD')                                  AS first_day,
+           to_char(MAX(day), 'YYYY-MM-DD')                                  AS last_day
+    FROM trades_daily`;
+  return { ...r };
+}
+
+export async function getDaily(): Promise<DailyPoint[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("trades");
+  if (!hasDb()) return [];
+  return plain(await db()<DailyPoint[]>`
+    SELECT to_char(day, 'YYYY-MM-DD')                                      AS day,
+           SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0))::float8          AS volume_usd,
+           SUM(trades)::float8                                             AS trades,
+           COUNT(DISTINCT wallet)::float8                                  AS wallets
+    FROM trades_daily
+    GROUP BY day
+    ORDER BY day`);
+}
+
+export async function getByToken(): Promise<TokenRow[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("trades");
+  if (!hasDb()) return [];
+  return plain(await db()<TokenRow[]>`
+    SELECT COALESCE(tk.symbol, encode(t.token, 'hex'))                     AS symbol,
+           SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0))::float8          AS volume_usd,
+           SUM(trades)::float8                                             AS trades,
+           COUNT(DISTINCT wallet)::float8                                  AS wallets
+    FROM trades_daily t
+    LEFT JOIN tokens tk ON tk.address = t.token
+    GROUP BY 1
+    ORDER BY volume_usd DESC`);
+}
+
+export type RunRow = {
+  id: number;
+  dataset: string;
+  execution_id: string | null;
+  start_date: string;
+  end_date: string;
+  performance: string;
+  state: string;
+  error: string | null;
+  row_count: number | null;
+  datapoint_count: number | null;
+  cost_credits: number | null;
+  execution_ms: number | null;
+  rows_upserted: number | null;
+  started_at: string;
+};
+
+export async function getRuns(limit = 50): Promise<RunRow[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("runs");
+  if (!hasDb()) return [];
+  return plain(await db()<RunRow[]>`
+    SELECT id, dataset, execution_id,
+           to_char(start_date, 'YYYY-MM-DD') AS start_date,
+           to_char(end_date, 'YYYY-MM-DD')   AS end_date,
+           performance, state, error, row_count,
+           datapoint_count::float8 AS datapoint_count,
+           cost_credits::float8    AS cost_credits,
+           execution_ms, rows_upserted,
+           to_char(started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI') AS started_at
+    FROM dune_runs
+    ORDER BY id DESC
+    LIMIT ${limit}`);
+}
+
+export async function getRunTotals() {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("runs");
+  if (!hasDb()) return null;
+  const [r] = await db()<{ runs: number; credits_30d: number | null; datapoints_30d: number | null; db_bytes: number }[]>`
+    SELECT COUNT(*)::float8 AS runs,
+           SUM(cost_credits) FILTER (WHERE started_at > now() - interval '30 days')::float8    AS credits_30d,
+           SUM(datapoint_count) FILTER (WHERE started_at > now() - interval '30 days')::float8 AS datapoints_30d,
+           pg_database_size(current_database())::float8                                         AS db_bytes
+    FROM dune_runs`;
+  return { ...r };
+}
