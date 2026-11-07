@@ -52,8 +52,11 @@ function rowsFor(start, end) {
     // regular wallets: few trades, directional with the market mood
     const n = Math.round((weekend ? 250 : 700) * growth);
     for (let i = 0; i < n; i++) {
-      const w = WALLETS[12 + Math.floor(rnd() ** 1.6 * (WALLETS.length - 12))];
-      const symbol = pick(SYMBOLS, symbolWeights);
+      const wi = 12 + Math.floor(rnd() ** 1.6 * (WALLETS.length - 12));
+      const w = WALLETS[wi];
+      // taste groups: big tech, crypto-linked, meme/momentum
+      const boost = [{ AAPL: 3, MSFT: 3, GOOGL: 3, AMZN: 2, META: 2 }, { COIN: 5, MSTR: 5, HOOD: 4, CRCL: 4 }, { TSLA: 3, GME: 6, PLTR: 4, NVDA: 2 }][wi % 3];
+      const symbol = pick(SYMBOLS, symbolWeights.map((x, i) => x * (boost[SYMBOLS[i]] ?? 1)));
       add(w, symbol, pick(ROUTES, routeWeights).route, 1 + Math.floor(rnd() * 3), 800 + rnd() ** 3 * 25000, mood * 0.25 + (symbol === "NVDA" ? 0.1 : symbol === "TSLA" ? -0.12 : 0));
     }
     rows.push(...seen.values());

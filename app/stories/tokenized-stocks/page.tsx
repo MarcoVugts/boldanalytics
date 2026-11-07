@@ -7,6 +7,9 @@ import { FlowSankey } from "@/components/FlowSankey";
 import { NetworkGraph } from "@/components/NetworkGraph";
 import { PressureChart } from "@/components/PressureChart";
 import { getFlows, getNetwork, getPressure, HF_TRADES_PER_DAY } from "@/lib/queries/flows";
+import { getCoTrading, getSegments } from "@/lib/queries/segments";
+import { SegmentChart } from "@/components/SegmentChart";
+import { CoTradeMatrix } from "@/components/CoTradeMatrix";
 
 export const metadata: Metadata = {
   title: "Tokenized Stocks on Base",
@@ -15,9 +18,9 @@ export const metadata: Metadata = {
 
 
 export default async function TokenizedStocks() {
-  const [overview, daily, tokens, dexes, entries, pressure, flows, network] = await Promise.all([
+  const [overview, daily, tokens, dexes, entries, pressure, flows, network, segments, cotrade] = await Promise.all([
     getOverview(), getDaily(), getByToken(), getByDex(), getByEntryContract(),
-    getPressure(), getFlows(), getNetwork(),
+    getPressure(), getFlows(), getNetwork(), getSegments(), getCoTrading(),
   ]);
   const totalVol = tokens.reduce((s, t) => s + t.volume_usd, 0) || 1;
 
@@ -54,6 +57,10 @@ export default async function TokenizedStocks() {
             </Card>
           </div>
 
+          <Card title="Who are the traders?" sub="Wallets bucketed per day by how much they traded, how often, and how many different stocks.">
+            <SegmentChart rows={segments} />
+          </Card>
+
           <Card
             title="Buy and sell pressure"
             sub={`Bought vs sold per stock. High-frequency = wallets with ${HF_TRADES_PER_DAY}+ trades that day (bots, market makers).`}
@@ -63,6 +70,10 @@ export default async function TokenizedStocks() {
 
           <Card title="How the volume flows" sub="Wallet type → app or router the transaction called → DEX that executed it → stock. Hover to follow a path.">
             <FlowSankey rows={flows} />
+          </Card>
+
+          <Card title="Traded together" sub="Which stocks the same (regular) traders trade. Affinity above 1× means more often together than chance.">
+            <CoTradeMatrix data={cotrade} />
           </Card>
 
           <Card title="Who trades what" sub="The 60 largest wallets and the stocks they trade. Hover a wallet or stock to see its connections.">

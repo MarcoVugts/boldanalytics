@@ -1,10 +1,9 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { db, hasDb } from "../db";
 
-// Wallets with this many trades on a day (all tokens together) count as
-// "high-frequency" that day: bots / market makers / arbitrage. Without labels this
-// is the simplest honest split; the top wallets do thousands of trades per day.
-export const HF_TRADES_PER_DAY = 100;
+// High-frequency threshold lives in segments-shared (also used by client charts).
+import { HF_TRADES_PER_DAY } from "../segments-shared";
+export { HF_TRADES_PER_DAY };
 
 const plain = <T,>(rows: readonly T[]): T[] => rows.map((r) => ({ ...r }));
 

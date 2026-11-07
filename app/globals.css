@@ -15,6 +15,12 @@
   --sell: #e34948;
   --neutral-mark: #a9a8a2;
   --link: #8f8e88;
+  /* ordinal ramp (validated, light): small -> large */
+  --seq-0: #86b6ef;
+  --seq-1: #5598e7;
+  --seq-2: #2a78d6;
+  --seq-3: #1c5cab;
+  --seq-4: #104281;
   --good: #0ca30c;
   --critical: #d03b3b;
   --warning: #b07a00;
@@ -35,6 +41,11 @@
     --sell: #e66767;
     --neutral-mark: #6b6a65;
     --link: #8f8e88;
+    --seq-0: #184f95;
+    --seq-1: #256abf;
+    --seq-2: #3987e5;
+    --seq-3: #6da7ec;
+    --seq-4: #9ec5f4;
     --warning: #fab219;
   }
 }
