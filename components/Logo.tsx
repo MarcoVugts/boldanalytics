@@ -1,15 +1,15 @@
-/** Horizontal logo; swaps to the cream version in dark mode (unless forceLight, used in exports). */
+/* eslint-disable @next/next/no-img-element */
+const RATIO = 687.38 / 100; // viewBox of logo-horizontal.svg (scripts/build-brand.mjs), keeps layout stable before load
+
+/** Horizontal logo. Renders both colour variants and lets CSS show the one for the active theme
+ *  (device setting or the visitor's choice). forceLight is used for exported share images. */
 export function Logo({ height = 28, forceLight = false }: { height?: number; forceLight?: boolean }) {
-  const ratio = 687.38 / 100; // viewBox of logo-horizontal.svg (scripts/build-brand.mjs), keeps layout stable before load
-  const img = (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src="/brand/logo-horizontal.svg" alt="Bold Analytics" height={height} width={Math.round(height * ratio)} style={{ height, width: "auto" }} />
-  );
-  if (forceLight) return img;
+  const props = { height, width: Math.round(height * RATIO), style: { height, width: "auto" } };
+  if (forceLight) return <img src="/brand/logo-horizontal.svg" alt="Bold Analytics" {...props} />;
   return (
-    <picture>
-      <source srcSet="/brand/logo-horizontal-on-dark.svg" media="(prefers-color-scheme: dark)" />
-      {img}
-    </picture>
+    <>
+      <img className="logo-light" src="/brand/logo-horizontal.svg" alt="Bold Analytics" {...props} />
+      <img className="logo-dark" src="/brand/logo-horizontal-on-dark.svg" alt="Bold Analytics" {...props} />
+    </>
   );
 }

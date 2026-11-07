@@ -26,8 +26,9 @@
   --critical: #d03b3b;
   --warning: #b07a00;
 }
+/* Dark mode: follows the device unless the visitor picked a theme (html[data-theme], set by ThemeToggle). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --surface-0: #151d22;
     --surface-1: #1c262d;
     --border: #2c3840;
@@ -48,7 +49,31 @@
     --seq-3: #b0cbea;
     --seq-4: #d6e4f4;
     --warning: #fab219;
+    color-scheme: dark;
   }
+}
+:root[data-theme="dark"] {
+  --surface-0: #151d22;
+  --surface-1: #1c262d;
+  --border: #2c3840;
+  --grid: #25313a;
+  --text-primary: #f3ece2;
+  --text-secondary: #c4c3ba;
+  --text-muted: #8d9396;
+  --series-1: #5f93cf;
+  --series-1-hover: #88afdd;
+  --series-2: #d95926;
+  --buy: #5f93cf;
+  --sell: #e66767;
+  --neutral-mark: #6b6a65;
+  --link: #8f8e88;
+  --seq-0: #3c6aa0;
+  --seq-1: #5f93cf;
+  --seq-2: #88afdd;
+  --seq-3: #b0cbea;
+  --seq-4: #d6e4f4;
+  --warning: #fab219;
+  color-scheme: dark;
 }
 
 /* Exported share images always use the light palette, whatever the viewer's theme. */
@@ -112,3 +137,13 @@ h1, h2, .font-brand {
   font-family: var(--font-brand), var(--font-geist-sans), system-ui, sans-serif;
   letter-spacing: -0.01em;
 }
+
+/* Logo variant per theme (both rendered, one shown) */
+.logo-dark { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .logo-light { display: none; }
+  :root:not([data-theme="light"]) .logo-dark { display: inline; }
+}
+:root[data-theme="dark"] .logo-light { display: none; }
+:root[data-theme="dark"] .logo-dark { display: inline; }
+:root[data-theme="light"] .logo-dark { display: none; }

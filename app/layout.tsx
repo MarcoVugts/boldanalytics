@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Geist, Geist_Mono, Montserrat } from "next/font/google";
 import { Logo } from "@/components/Logo";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -20,12 +21,17 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${montserrat.variable} h-full antialiased`}>
+    <html lang="en" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} ${montserrat.variable} h-full antialiased`}>
+      <head>
+        {/* apply a remembered theme before first paint (see components/ThemeToggle.tsx) */}
+        <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}` }} />
+      </head>
       <body className="min-h-full flex flex-col">
         <header className="border-b border-border">
           <nav className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-4 text-sm">
             <Link href="/" aria-label="Bold Analytics home"><Logo height={26} /></Link>
             <Link href="/stories/tokenized-stocks" className="text-ink-2 hover:text-ink">Tokenized Stocks</Link>
+            <ThemeToggle />
           </nav>
         </header>
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>

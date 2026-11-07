@@ -31,12 +31,25 @@ const jobs = [
   // App icons
   ["app/apple-icon.png", 180, 180, `<img src="${uri("mark-navy-rounded.svg")}" style="width:180px;height:180px;display:block">`],
   ["public/brand/favicon-32.png", 32, 32, `<img src="${uri("favicon.svg")}" style="width:32px;height:32px;display:block">`],
-  // Large logos for documents and presentations (transparent background for the light one)
-  ["public/brand/logo-stacked-2000.png", 2000, 0, `<img src="${uri("logo-stacked.svg")}" style="width:2000px;display:block">`],
-  ["public/brand/logo-stacked-on-dark-2000.png", 2000, 0, `<div style="background:${NAVY}"><img src="${uri("logo-stacked-on-dark.svg")}" style="width:2000px;display:block"></div>`],
+  // High-resolution LinkedIn logos (LinkedIn downsizes; upload the 1200 for the sharpest result)
+  ["public/brand/linkedin-logo-1200.png", 1200, 1200, center(1200, 1200, CREAM, `<img src="${uri("icon.svg")}" style="width:870px">`)],
+  ["public/brand/linkedin-logo-dark-1200.png", 1200, 1200, center(1200, 1200, NAVY, `<img src="${uri("icon-on-dark.svg")}" style="width:870px">`)],
+  ["public/brand/linkedin-logo-dark-400.png", 400, 400, center(400, 400, NAVY, `<img src="${uri("icon-on-dark.svg")}" style="width:290px">`)],
 ];
+// High-resolution logo PNGs: every variant, transparent and on its brand background.
+const HI = [
+  ["logo-stacked", 4000], ["logo-horizontal", 4000], ["icon", 2000],
+];
+for (const [name, w] of HI) {
+  const pad = Math.round(w * 0.06);
+  jobs.push([`public/brand/png/${name}-${w}.png`, w, 0, `<img src="${uri(`${name}.svg`)}" style="width:${w}px;display:block">`]);
+  jobs.push([`public/brand/png/${name}-on-dark-${w}.png`, w, 0, `<img src="${uri(`${name}-on-dark.svg`)}" style="width:${w}px;display:block">`]);
+  jobs.push([`public/brand/png/${name}-cream-bg-${w}.png`, w + 2 * pad, 0, `<div style="background:${CREAM};padding:${pad}px;display:inline-block"><img src="${uri(`${name}.svg`)}" style="width:${w}px;display:block"></div>`]);
+  jobs.push([`public/brand/png/${name}-navy-bg-${w}.png`, w + 2 * pad, 0, `<div style="background:${NAVY};padding:${pad}px;display:inline-block"><img src="${uri(`${name}-on-dark.svg`)}" style="width:${w}px;display:block"></div>`]);
+}
 
 (async () => {
+  fs.mkdirSync(path.join(BRAND, "png"), { recursive: true });
   const browser = await chromium.launch();
   for (const [out, w, h, html] of jobs) {
     const page = await browser.newPage({ viewport: { width: w, height: h || 800 } });
