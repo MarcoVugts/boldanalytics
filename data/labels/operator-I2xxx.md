@@ -15,9 +15,17 @@ On 2026-11-05 four contracts with I2xxx-style names were `tx_to` for ~68% of tok
   - 0x8ad1f3a165479a54a267d9a85be79f95a7dd51a0: owner/admin; **Gnosis Safe, 4-of-10**
   - 0x7ff4ed8ab94c849b812622eb462682208be06b93: role manager (AccessControl) with timelocks (1 day)
   - 0x51c72848c68a965f66fa7a88855f9f7784502a7f: inventory/vault; itself a trading contract (same owner and role manager), EIP-1271 signer, pays block.coinbase
-  - 0x52aa899454998be5b000ad077a46bbe360f4e497: upgradeable proxy (admin + per-selector implementations), receives tokens
+  - 0x52aa899454998be5b000ad077a46bbe360f4e497: **Fluid: Liquidity** (Fluid protocol liquidity layer, per Etherscan name tag); a trading/lending venue, not the operator's own address
 - Safe signers: 0xffaa5c7adb11fb55382a01541443762d684bd52e, 0xf02481155d9a1ed3859c8d3a1a42629cdedb962a, 0xa88718878384700060fda6f128fd36a9ef3cbc06, 0xa430575acbe77e699249cf73006c2791ce29245d, 0x585a8ac375433e9771a1514c2a19daddefd5aa89, 0x901cc29cb649e0b50d11b04d14afcb5678b55794, 0x0560de031ead6c4f4364627cb0b2d748044d4232, 0x412766e914837920ac030752ab64d96fa4433617, 0xa0a848a047960fdf6a074a685988e01f4dd4ccfe, 0x1dfc9c18b903c267df97e19fb2e1b48b6ad25b36
 
-## Interpretation (not confirmed)
-Institutional-grade market-making / arbitrage setup (multisig owner, timelocked roles, vault, builder payments).
-The identity of the operator is unknown. Do not name a firm in public content without confirmation.
+## Attribution (web search, 2026-11-07)
+- 0x51c72848c68a965f66fa7a88855f9f7784502a7f (the vault, same owner Safe and role manager as I2604Ctrl) is
+  labeled **Wintermute** on Arkham Intel (deployer also listed as Wintermute), and is listed as a Wintermute EVM
+  address in public posts (Odaily, @belizardd on X). Multichain balance ~$107-110M in 2026 snapshots.
+- Chain of evidence: I2604Ctrl -> uses 0x51c7 as inventory -> both owned by Safe 0x8ad1 (4-of-10) -> 0x51c7 attributed to Wintermute.
+- Context: Wintermute registered a US broker-dealer in 2026 and said it targets tokenized stocks (Cointelegraph, Aug 2026).
+- Not verified first-hand (explorers blocked from the dev container). The I2451* contracts are not linked yet.
+
+## How to say it publicly
+"Contracts controlled by the same multisig as a wallet Arkham attributes to Wintermute" or
+"attributed to Wintermute (Arkham)". Avoid stating it as fact; consider asking Wintermute for comment.
