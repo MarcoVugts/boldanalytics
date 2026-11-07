@@ -9,6 +9,7 @@ export const maxDuration = 300;
 // GET /api/cron/trades | routes | tokens     — one job
 // GET /api/cron/trades?start=2026-11-01&end=2026-11-02   — manual window
 //     &maxExport=200                         — raise the export-credit guard for this call
+//     &client=acme                           — bill this run's credits to a client (see /ops)
 export async function GET(req: NextRequest, ctx: { params: Promise<{ job: string }> }) {
   const secret = process.env.CRON_SECRET;
   if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
@@ -18,6 +19,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ job: string
   const { job } = await ctx.params;
   const q = req.nextUrl.searchParams;
   const valid = (d: string | null) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : undefined);
+  const client = q.get("client");
+  if (client && !/^[a-z0-9][a-z0-9-]{0,39}$/.test(client)) {
+    return NextResponse.json({ error: "client must be a lowercase slug (a-z, 0-9, -)" }, { status: 400 });
+  }
   const trigger = /vercel-cron/i.test(req.headers.get("user-agent") ?? "") ? "cron" : "manual";
   const deadline = Date.now() + (maxDuration - 20) * 1000;
   const opts = () => ({
@@ -27,6 +32,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ job: string
     force: q.get("force") === "1",
     maxExportCredits: q.get("maxExport") ? Number(q.get("maxExport")) : undefined,
     trigger,
+    client: client ?? undefined,
   });
 
   const jobs: Record<string, string[]> = {

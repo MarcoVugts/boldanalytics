@@ -32,6 +32,8 @@ Kept lean because Dune export costs 10 credits/MB on Analyst. Measured for 2026-
 
 Every execution is logged in `dune_runs`. See `/ops`.
 
+**Credits per client.** Each run has a `client` (default `internal` = own stories). A dataset can set `client` in `lib/ingest.ts`, or bill a single call with `&client=acme` (lowercase slug). `/ops` shows a monthly statement per client (execution + estimated export credits, x `DUNE_USD_PER_CREDIT`) to pass Dune costs through on invoices.
+
 **What a run costs on Dune** (from docs.dune.com/api-reference/overview/billing):
 - *Execution*: compute-based, reported per run as `execution_cost_credits` → stored as `cost_credits`.
 - *Export*: pulling results costs **10 credits per MB on Analyst** (2 on Plus) → estimated from result size as `export_credits_est`. Keep result columns minimal.

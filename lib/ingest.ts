@@ -40,6 +40,8 @@ type Dataset = {
   name: string;
   /** env var holding the Dune query id */
   queryEnv: string;
+  /** who the credits are for (dune_runs.client); default "internal" = own data stories */
+  client?: string;
   /** write one page of results; runs inside the window's transaction */
   load: (tx: postgres.TransactionSql, rows: Row[]) => Promise<number>;
   /** called once per window before the first page (e.g. delete the window's days) */
@@ -137,12 +139,22 @@ export async function nextWindow(dataset: string, override?: { start?: string; e
 
 export async function runIngest(
   datasetName: string,
-  opts: { budgetMs: number; start?: string; end?: string; force?: boolean; maxExportCredits?: number; trigger?: string },
+  opts: {
+    budgetMs: number;
+    start?: string;
+    end?: string;
+    force?: boolean;
+    maxExportCredits?: number;
+    trigger?: string;
+    /** bill this run to a client (overrides the dataset's client) */
+    client?: string;
+  },
 ): Promise<IngestResult> {
   const ds = DATASETS[datasetName];
   if (!ds) throw new Error(`unknown dataset: ${datasetName}`);
   const sql = db();
   const base = { dataset: ds.name };
+  const client = opts.client ?? ds.client ?? "internal";
 
   // 1) Resume a pending execution first, rather than paying for a new one.
   const [pending] = await sql<{ id: number; execution_id: string; start_date: string; end_date: string }[]>`
@@ -172,8 +184,8 @@ export async function runIngest(
       PERFORMANCE,
     );
     const [row] = await sql<{ id: number }[]>`
-      INSERT INTO dune_runs (dataset, query_id, execution_id, start_date, end_date, performance, state, triggered_by)
-      VALUES (${ds.name}, ${qid}, ${executionId}, ${window.start}, ${window.end}, ${PERFORMANCE}, 'pending', ${opts.trigger ?? null})
+      INSERT INTO dune_runs (dataset, query_id, execution_id, start_date, end_date, performance, state, triggered_by, client)
+      VALUES (${ds.name}, ${qid}, ${executionId}, ${window.start}, ${window.end}, ${PERFORMANCE}, 'pending', ${opts.trigger ?? null}, ${client})
       RETURNING id`;
     runId = row.id;
   }

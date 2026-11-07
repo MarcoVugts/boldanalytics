@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { Stat } from "@/components/Stat";
 import { bytes, int, num } from "@/lib/format";
-import { getRunTotals, getRuns } from "@/lib/queries/trades";
+import { getClientStatement, getRunTotals, getRuns } from "@/lib/queries/trades";
+
+// What one credit costs on your plan (Analyst: $75 / 4,000). Used for the pass-through statement.
+const USD_PER_CREDIT = Number(process.env.DUNE_USD_PER_CREDIT ?? 75 / 4000);
+const usd2 = (v: number) => `$${v.toFixed(2)}`;
 
 export const metadata: Metadata = { title: "Ingest runs", robots: { index: false, follow: false } };
 
@@ -13,7 +17,7 @@ const stateColor: Record<string, string> = {
 };
 
 export default async function Ops() {
-  const [runs, totals] = await Promise.all([getRuns(), getRunTotals()]);
+  const [runs, totals, statement] = await Promise.all([getRuns(), getRunTotals(), getClientStatement()]);
   return (
     <div className="space-y-6">
       <header>
@@ -38,11 +42,51 @@ export default async function Ops() {
         <Stat label="Database size" value={totals ? bytes(totals.db_bytes) : "—"} note="Neon free: 0.5–1 GB" />
       </div>
 
+      <section className="space-y-2">
+        <div>
+          <h2 className="text-lg font-bold tracking-tight">Credits per client</h2>
+          <p className="text-sm text-ink-2">
+            Per calendar month (UTC), for passing Dune costs through. Cost at ${USD_PER_CREDIT.toFixed(4)} per credit
+            (set <code>DUNE_USD_PER_CREDIT</code>). Export credits are estimated from result size; check against the Dune billing period above.
+          </p>
+        </div>
+        <div className="overflow-x-auto rounded-lg border border-border bg-surface-1">
+          <table className="w-full text-sm">
+            <thead className="text-left text-xs text-ink-3">
+              <tr className="border-b border-border">
+                {["Month", "Client", "Runs", "Exec credits", "Export ≈", "Total credits", "Cost"].map((h, i) => (
+                  <th key={h} className={`px-3 py-2 font-normal whitespace-nowrap ${i > 1 ? "text-right" : ""}`}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {statement.map((r) => {
+                const total = r.exec_credits + r.export_credits;
+                return (
+                  <tr key={`${r.month}-${r.client}`} className="border-b border-border last:border-0 whitespace-nowrap">
+                    <td className="px-3 py-2">{r.month}</td>
+                    <td className="px-3 py-2 font-medium">{r.client}</td>
+                    <td className="px-3 py-2 text-right">{int(r.runs)}</td>
+                    <td className="px-3 py-2 text-right">{int(r.exec_credits)}</td>
+                    <td className="px-3 py-2 text-right">{int(r.export_credits)}</td>
+                    <td className="px-3 py-2 text-right font-medium">{int(total)}</td>
+                    <td className="px-3 py-2 text-right">{usd2(total * USD_PER_CREDIT)}</td>
+                  </tr>
+                );
+              })}
+              {!statement.length && (
+                <tr><td colSpan={7} className="px-3 py-6 text-center text-ink-3">No runs yet.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <div className="overflow-x-auto rounded-lg border border-border bg-surface-1">
         <table className="w-full text-sm">
           <thead className="text-left text-xs text-ink-3">
             <tr className="border-b border-border">
-              {["Started (UTC)", "By", "Dataset", "Window (end excl.)", "Engine", "State", "Rows", "Datapoints", "Exec credits", "Export ≈", "Exec", "Upserted"].map((h) => (
+              {["Started (UTC)", "By", "Client", "Dataset", "Window (end excl.)", "Engine", "State", "Rows", "Datapoints", "Exec credits", "Export ≈", "Exec", "Upserted"].map((h) => (
                 <th key={h} className="px-3 py-2 font-normal whitespace-nowrap">{h}</th>
               ))}
             </tr>
@@ -52,6 +96,7 @@ export default async function Ops() {
               <tr key={r.id} className="border-b border-border last:border-0 whitespace-nowrap">
                 <td className="px-3 py-2">{r.started_at}</td>
                 <td className="px-3 py-2 text-ink-2">{r.triggered_by ?? "—"}</td>
+                <td className="px-3 py-2 text-ink-2">{r.client}</td>
                 <td className="px-3 py-2">{r.dataset}</td>
                 <td className="px-3 py-2">{r.start_date} → {r.end_date}</td>
                 <td className="px-3 py-2">{r.performance}</td>
@@ -67,7 +112,7 @@ export default async function Ops() {
               </tr>
             ))}
             {!runs.length && (
-              <tr><td colSpan={12} className="px-3 py-6 text-center text-ink-3">No runs yet.</td></tr>
+              <tr><td colSpan={13} className="px-3 py-6 text-center text-ink-3">No runs yet.</td></tr>
             )}
           </tbody>
         </table>

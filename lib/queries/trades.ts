@@ -117,6 +117,7 @@ export type RunRow = {
   rows_upserted: number | null;
   started_at: string;
   triggered_by: string | null;
+  client: string;
 };
 
 export async function getRuns(limit = 50): Promise<RunRow[]> {
@@ -134,7 +135,7 @@ export async function getRuns(limit = 50): Promise<RunRow[]> {
            export_credits_est::float8 AS export_credits_est,
            execution_ms, rows_upserted,
            to_char(started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI') AS started_at,
-           triggered_by
+           triggered_by, client
     FROM dune_runs
     ORDER BY id DESC
     LIMIT ${limit}`);
@@ -161,4 +162,30 @@ export async function getRunTotals() {
            pg_database_size(current_database())::float8 AS db_bytes
     FROM dune_runs`;
   return { ...r };
+}
+
+export type ClientMonthRow = {
+  month: string; // YYYY-MM (UTC)
+  client: string;
+  runs: number;
+  exec_credits: number;
+  export_credits: number;
+};
+
+/** Dune credits per client per calendar month (UTC): the basis for passing costs through. */
+export async function getClientStatement(months = 6): Promise<ClientMonthRow[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("runs");
+  if (!hasDb()) return [];
+  return plain(await db()<ClientMonthRow[]>`
+    SELECT to_char(date_trunc('month', started_at AT TIME ZONE 'UTC'), 'YYYY-MM') AS month,
+           client,
+           COUNT(*)::float8                                 AS runs,
+           COALESCE(SUM(cost_credits), 0)::float8           AS exec_credits,
+           COALESCE(SUM(export_credits_est), 0)::float8     AS export_credits
+    FROM dune_runs
+    WHERE started_at AT TIME ZONE 'UTC' >= date_trunc('month', now() AT TIME ZONE 'UTC') - make_interval(months => ${months - 1})
+    GROUP BY 1, 2
+    ORDER BY 1 DESC, (COALESCE(SUM(cost_credits), 0) + COALESCE(SUM(export_credits_est), 0)) DESC`);
 }
