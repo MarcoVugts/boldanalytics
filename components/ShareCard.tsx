@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { toPng } from "html-to-image";
+import { Logo } from "./Logo";
 
 const EXPORT_WIDTH = 1200; // layout width; exported at 3x = 3600px (X accepts up to 4096px)
 const PIXEL_RATIO = 3;
@@ -101,7 +102,7 @@ export function ShareCard({
     >
       {exporting && (
         <div className="mb-3 flex items-center justify-between text-sm">
-          <span className="font-bold tracking-tight text-ink">Bold Analytics</span>
+          <Logo height={30} forceLight />
           <span className="text-ink-3">Tokenized Stocks on Base</span>
         </div>
       )}

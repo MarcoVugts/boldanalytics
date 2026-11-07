@@ -77,3 +77,10 @@ sql/dune/                      Dune query sources
 sql/migrations/                Postgres schema
 scripts/                       migrate, test-dune, mock-dune
 ```
+
+## Brand
+
+- Logo set (SVG, text as paths): `public/brand/` — stacked, horizontal, on-dark variants, icon, mark (rounded/circle).
+  Regenerate with `node scripts/build-brand.mjs`; PNGs (X avatar 400×400, X header 1500×500, apple icon) with
+  `NODE_PATH=$(npm root -g) node scripts/render-brand-png.mjs`.
+- Colors: navy `#1f2b33`, cream `#f8f1e7`, accent blue `#2a78d6` (same as the chart series). Headings in Montserrat.

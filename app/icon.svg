@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"><rect width="64" height="64" rx="14.08" fill="#1f2b33"/>
+  <g fill="none" stroke="#f8f1e7" stroke-width="5.22" stroke-linejoin="round" stroke-linecap="round">
+    <polygon points="32,10.24 50.84,21.12 50.84,42.88 32,53.76 13.16,42.88 13.16,21.12"/>
+    <path d="M13.16,21.12 L32,32 L50.84,21.12 M32,32 L32,53.76"/>
+  </g>
+  <g fill="#4b93e6"><path d="M35.2,47.99 L39.16,45.71 L39.16,40.14 L35.2,42.42 Z"/><path d="M40.1,45.16 L44.06,42.88 L44.06,33.97 L40.1,36.25 Z"/><path d="M45,42.34 L48.96,40.05 L48.96,27.52 L45,29.8 Z"/></g>
+</svg>
