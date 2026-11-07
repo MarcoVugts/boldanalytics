@@ -22,8 +22,12 @@ const pts = (a) => a.map(([x, y]) => `${r(x)},${r(y)}`).join(" ");
 function icon(x, y, h, { fg, acc }, sw = 0.075) {
   const k = h / 100, s = 40 * k, cx = x + 50 * k, cy = y + 50 * k, a = s * C30, w = sw * 100 * k, pad = w * 0.7;
   const hexp = [[0, -s], [a, -s / 2], [a, s / 2], [0, s], [-a, s / 2], [-a, -s / 2]].map(([dx, dy]) => [cx + dx, cy + dy]);
-  const bars = [0.15, 0.42, 0.69].map((t, i) => {
-    const bh = [0.42, 0.66, 0.92][i] * (s - 2 * pad), bx = cx + t * a, by = cy + s - (t * s) / 2 - pad, dx = 0.24 * a, dy = -(0.24 * s) / 2;
+  // Bars sit inside the right face with the same margin on every side (stroke half-width + gap),
+  // so the tallest bar never touches the cube outline.
+  const edge = w / 2 / a, gap = 0.035, bw = (1 - 2 * edge - 4 * gap) / 3;
+  const bars = [0, 1, 2].map((i) => {
+    const t = edge + gap + i * (bw + gap);
+    const bh = [0.42, 0.66, 0.92][i] * (s - 2 * pad), bx = cx + t * a, by = cy + s - (t * s) / 2 - pad, dx = bw * a, dy = -(bw * s) / 2;
     return `<path d="M${r(bx)},${r(by)} L${r(bx + dx)},${r(by + dy)} L${r(bx + dx)},${r(by + dy - bh)} L${r(bx)},${r(by - bh)} Z" fill="${acc}"/>`;
   }).join("");
   return `<g fill="none" stroke="${fg}" stroke-width="${r(w)}" stroke-linejoin="round" stroke-linecap="round"><polygon points="${pts(hexp)}"/><path d="M${r(cx - a)},${r(cy - s / 2)} L${r(cx)},${r(cy)} L${r(cx + a)},${r(cy - s / 2)} M${r(cx)},${r(cy)} L${r(cx)},${r(cy + s)}"/></g>${bars}`;
