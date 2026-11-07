@@ -1,0 +1,147 @@
+<!doctype html>
+<!-- Bold Analytics brand sheet. Render with: NODE_PATH=$(npm root -g) node scripts/render-brand-sheet.cjs -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bold Analytics: brand sheet</title>
+<style>
+@font-face{font-family:Montserrat;font-weight:800;src:url("../node_modules/@fontsource/montserrat/files/montserrat-latin-800-normal.woff2")}
+@font-face{font-family:Montserrat;font-weight:700;src:url("../node_modules/@fontsource/montserrat/files/montserrat-latin-700-normal.woff2")}
+@font-face{font-family:Montserrat;font-weight:600;src:url("../node_modules/@fontsource/montserrat/files/montserrat-latin-600-normal.woff2")}
+@font-face{font-family:Geist;font-weight:400;src:url("../node_modules/geist/dist/fonts/geist-sans/Geist-Regular.woff2")}
+@font-face{font-family:Geist;font-weight:500;src:url("../node_modules/geist/dist/fonts/geist-sans/Geist-Medium.woff2")}
+@font-face{font-family:Geist;font-weight:600;src:url("../node_modules/geist/dist/fonts/geist-sans/Geist-SemiBold.woff2")}
+:root{--navy:#1e2a32;--cream:#f8f0e8;--card:#fdf8f3;--line:#e8dfd2;--muted:#79807f;--slate:#4f7396}
+*{box-sizing:border-box}
+body{margin:0;width:1600px;background:var(--cream);color:var(--navy);font-family:Geist,Helvetica,sans-serif;padding:56px 64px 48px}
+h1{font:800 44px Montserrat;margin:0;letter-spacing:-.01em}
+h2{font:800 20px Montserrat;margin:0 0 14px;letter-spacing:-.01em}
+.k{font:600 11px Geist;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.p{font-size:15px;color:#4b565d;line-height:1.5}
+.top{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid var(--navy);padding-bottom:22px;margin-bottom:30px}
+.grid{display:grid;gap:22px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px}
+.dark{background:var(--navy);border-color:var(--navy);color:var(--cream)}
+.center{display:flex;align-items:center;justify-content:center}
+.sw{border-radius:12px;padding:16px;height:132px;display:flex;flex-direction:column;justify-content:flex-end;font-size:13px;line-height:1.45}
+.sw b{font:700 15px Montserrat;margin-bottom:4px}
+.dont{position:relative;height:110px;border-radius:12px;background:var(--card);border:1px solid var(--line);overflow:hidden}
+.dont .x{position:absolute;top:8px;right:10px;font:800 16px Montserrat;color:#d03b3b}
+.dont .t{position:absolute;left:12px;bottom:8px;font-size:12px;color:#4b565d}
+.foot{margin-top:28px;display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div>
+    <div class="k">Brand sheet · v1 · 2026</div>
+    <h1>Bold Analytics</h1>
+    <div class="p" style="margin-top:6px;font-size:17px">Onchain data stories &amp; custom dashboards. Clear, calm, evidence first.</div>
+  </div>
+  <img src="../public/brand/logo-stacked.svg" style="height:96px">
+</div>
+
+<!-- LOGO -->
+<div class="grid" style="grid-template-columns:1.25fr 1.25fr 1fr">
+  <div class="card">
+    <div class="k">Primary logo · stacked</div>
+    <div class="center" style="height:210px"><img src="../public/brand/logo-stacked.svg" style="height:120px"></div>
+    <div class="p">Use wherever there is room: homepage, reports, decks, X/LinkedIn headers.</div>
+  </div>
+  <div class="card dark">
+    <div class="k" style="color:#9aa3a6">On dark</div>
+    <div class="center" style="height:210px"><img src="../public/brand/logo-stacked-on-dark.svg" style="height:120px"></div>
+    <div class="p" style="color:#c4c3ba">Cream logo, lighter slate bars (#7fa3c6) on navy.</div>
+  </div>
+  <div class="card">
+    <div class="k">Icon · avatars &amp; favicon</div>
+    <div style="display:flex;gap:16px;align-items:flex-end;height:140px;justify-content:center">
+      <img src="../public/brand/linkedin-logo-400.png" style="width:96px;border-radius:16px;border:1px solid var(--line)">
+      <img src="../public/brand/x-avatar-400.png" style="width:96px;border-radius:50%">
+      <img src="../public/brand/favicon.svg" style="width:32px"><img src="../public/brand/favicon.svg" style="width:16px">
+    </div>
+    <div class="p" style="margin-top:14px">The cube on cream (LinkedIn) or navy (X, app icon, favicon). Never smaller than 16&nbsp;px.</div>
+  </div>
+</div>
+
+<div class="grid" style="grid-template-columns:1.25fr 1.25fr 1fr;margin-top:22px">
+  <div class="card">
+    <div class="k">Secondary logo · one line</div>
+    <div class="center" style="height:110px"><img src="../public/brand/logo-horizontal.svg" style="height:46px"></div>
+    <div class="p">Site header, e-mail signature, narrow spaces.</div>
+  </div>
+  <div class="card">
+    <div class="k">Clear space &amp; minimum size</div>
+    <div class="center" style="height:110px">
+      <div style="position:relative;padding:22px;border:1.5px dashed var(--slate);border-radius:6px">
+        <img src="../public/brand/logo-horizontal.svg" style="height:38px;display:block">
+        <span style="position:absolute;left:4px;top:2px;font:700 11px Geist;color:var(--slate)">X</span>
+      </div>
+    </div>
+    <div class="p">Keep free space of X (= half the icon height) on all sides. Minimum width: stacked 120&nbsp;px, one line 110&nbsp;px, icon 16&nbsp;px.</div>
+  </div>
+  <div class="card">
+    <div class="k">Logo construction</div>
+    <div class="p" style="margin-top:6px">Cube = a block on the chain.<br>Rising bars = the analysis.<br><br>BOLD: Montserrat ExtraBold.<br>ANALYTICS: Montserrat Bold, tracked to the width of BOLD, set tight underneath.</div>
+  </div>
+</div>
+
+<!-- COLOURS + TYPE -->
+<div class="grid" style="grid-template-columns:1.6fr 1fr;margin-top:22px">
+  <div class="card">
+    <h2>Colours</h2>
+    <div class="grid" style="grid-template-columns:repeat(4,1fr);gap:12px">
+      <div class="sw" style="background:#1e2a32;color:#f8f0e8"><b>Navy</b>#1e2a32<br>RGB 30 42 50<br>Text, logo, dark backgrounds</div>
+      <div class="sw" style="background:#f8f0e8;border:1px solid var(--line)"><b>Cream</b>#f8f0e8<br>RGB 248 240 232<br>Backgrounds</div>
+      <div class="sw" style="background:#4f7396;color:#fff"><b>Slate</b>#4f7396<br>RGB 79 115 150<br>Accent in the logo</div>
+      <div class="sw" style="background:#7fa3c6;color:#1e2a32"><b>Slate · on dark</b>#7fa3c6<br>RGB 127 163 198<br>Logo accent on navy</div>
+    </div>
+    <div class="k" style="margin-top:18px">Chart colours (validated for contrast and colour blindness)</div>
+    <div class="grid" style="grid-template-columns:repeat(5,1fr);gap:12px">
+      <div class="sw" style="height:96px;background:#4678ae;color:#fff"><b>Chart accent</b>#4678ae · dark #5f93cf</div>
+      <div class="sw" style="height:96px;background:#e34948;color:#fff"><b>Sell / negative</b>#e34948 · dark #e66767</div>
+      <div class="sw" style="height:96px;background:#eb6834;color:#fff"><b>Second series</b>#eb6834 · dark #d95926</div>
+      <div class="sw" style="height:96px;background:#a9a8a2;color:#1e2a32"><b>Other / neutral</b>#a9a8a2</div>
+      <div class="sw" style="height:96px;background:linear-gradient(90deg,#8aabd0,#6690c1,#4678ae,#345d8c,#22426a);color:#fff"><b>Scale</b>#8aabd0 → #22426a</div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Typography</h2>
+    <div class="k">Headings · Montserrat ExtraBold</div>
+    <div style="font:800 34px Montserrat;letter-spacing:-.01em;line-height:1.1">Who really trades tokenized stocks?</div>
+    <div class="k" style="margin-top:16px">Subheads · Montserrat SemiBold / Bold</div>
+    <div style="font:700 19px Montserrat">Where the volume flows, by app and DEX</div>
+    <div class="k" style="margin-top:16px">Body &amp; data · Geist</div>
+    <div style="font:400 15px Geist;line-height:1.5;color:#4b565d">Volume is counted per token leg. Numbers use tabular figures: <b style="font-weight:600;color:var(--navy);font-variant-numeric:tabular-nums">$145.2M · 252,528 swaps · 5,415 wallets</b></div>
+  </div>
+</div>
+
+<!-- CHART STYLE + DON'TS -->
+<div class="grid" style="grid-template-columns:1fr 1.6fr;margin-top:22px">
+  <div class="card">
+    <h2>Chart style</h2>
+    <div style="display:flex;gap:8px;align-items:flex-end;height:120px;padding:10px 4px;border-bottom:1px solid var(--line)">
+      <div style="flex:1;height:44%;background:#1e2a32;opacity:.82;border-radius:4px 4px 0 0"></div>
+      <div style="flex:1;height:30%;background:#1e2a32;opacity:.82;border-radius:4px 4px 0 0"></div>
+      <div style="flex:1;height:58%;background:#1e2a32;opacity:.82;border-radius:4px 4px 0 0"></div>
+      <div style="flex:1;height:66%;background:#1e2a32;opacity:.82;border-radius:4px 4px 0 0"></div>
+      <div style="flex:1;height:92%;background:#4678ae;border-radius:4px 4px 0 0"></div>
+    </div>
+    <div class="p" style="margin-top:12px">Navy for context, one accent for the story. Thin marks, light grid, labels in navy/grey, never in the series colour. Always state the period (UTC) and "Data via Dune".</div>
+  </div>
+  <div class="card">
+    <h2>Don't</h2>
+    <div class="grid" style="grid-template-columns:repeat(4,1fr);gap:12px">
+      <div class="dont center"><span class="x">✕</span><img src="../public/brand/logo-horizontal.svg" style="height:26px;width:200px;transform:scaleX(1.25)"><span class="t">Stretch or squash</span></div>
+      <div class="dont center"><span class="x">✕</span><img src="../public/brand/logo-horizontal.svg" style="height:26px;filter:hue-rotate(140deg) saturate(4)"><span class="t">Recolour</span></div>
+      <div class="dont center"><span class="x">✕</span><img src="../public/brand/logo-horizontal.svg" style="height:26px;transform:rotate(-12deg)"><span class="t">Rotate or add effects</span></div>
+      <div class="dont center" style="background:repeating-linear-gradient(45deg,#4f7396 0 10px,#eb6834 10px 20px)"><span class="x">✕</span><img src="../public/brand/logo-horizontal.svg" style="height:26px"><span class="t" style="color:#fff">Busy backgrounds</span></div>
+    </div>
+    <div class="p" style="margin-top:12px">Use only the supplied files (public/brand). On cream or navy; on photos only with a solid cream or navy panel behind the logo.</div>
+  </div>
+</div>
+
+<div class="foot"><span>Bold Analytics · trade name of Vugts Data Analytics</span><span>Files: public/brand · generated by scripts/build-brand.mjs</span></div>
+</body>
+</html>

@@ -1,77 +1,79 @@
 @import "tailwindcss";
 
 :root {
-  --surface-0: #f6f6f4;
-  --surface-1: #fcfcfb;
-  --border: #e4e3df;
-  --grid: #ecebe7;
-  --text-primary: #0b0b0b;
-  --text-secondary: #52514e;
-  --text-muted: #7a7974;
-  --series-1: #2a78d6;
-  --series-1-hover: #1c5cab;
+  --surface-0: #f8f0e8;
+  --surface-1: #fdf8f3;
+  --border: #e8dfd2;
+  --grid: #efe7db;
+  --text-primary: #1e2a32;
+  --text-secondary: #4b565d;
+  --text-muted: #79807f;
+  --series-1: #4678ae;
+  --series-1-hover: #345d8c;
   --series-2: #eb6834;
-  --buy: #2a78d6;
+  --buy: #4678ae;
   --sell: #e34948;
   --neutral-mark: #a9a8a2;
   --link: #8f8e88;
+  /* brand: navy #1e2a32, cream #f8f0e8; chart accent = brand slate, saturated enough to read as colour (validated) */
   /* ordinal ramp (validated, light): small -> large */
-  --seq-0: #86b6ef;
-  --seq-1: #5598e7;
-  --seq-2: #2a78d6;
-  --seq-3: #1c5cab;
-  --seq-4: #104281;
+  --seq-0: #8aabd0;
+  --seq-1: #6690c1;
+  --seq-2: #4678ae;
+  --seq-3: #345d8c;
+  --seq-4: #22426a;
   --good: #0ca30c;
   --critical: #d03b3b;
   --warning: #b07a00;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --surface-0: #121211;
-    --surface-1: #1a1a19;
-    --border: #2e2e2c;
-    --grid: #262624;
-    --text-primary: #f0efec;
-    --text-secondary: #c3c2b7;
-    --text-muted: #8f8e88;
-    --series-1: #3987e5;
-    --series-1-hover: #6da7ec;
+    --surface-0: #151d22;
+    --surface-1: #1c262d;
+    --border: #2c3840;
+    --grid: #25313a;
+    --text-primary: #f3ece2;
+    --text-secondary: #c4c3ba;
+    --text-muted: #8d9396;
+    --series-1: #5f93cf;
+    --series-1-hover: #88afdd;
     --series-2: #d95926;
-    --buy: #3987e5;
+    --buy: #5f93cf;
     --sell: #e66767;
     --neutral-mark: #6b6a65;
     --link: #8f8e88;
-    --seq-0: #184f95;
-    --seq-1: #256abf;
-    --seq-2: #3987e5;
-    --seq-3: #6da7ec;
-    --seq-4: #9ec5f4;
+    --seq-0: #3c6aa0;
+    --seq-1: #5f93cf;
+    --seq-2: #88afdd;
+    --seq-3: #b0cbea;
+    --seq-4: #d6e4f4;
     --warning: #fab219;
   }
 }
 
 /* Exported share images always use the light palette, whatever the viewer's theme. */
 .export-light {
-  --surface-0: #f6f6f4;
-  --surface-1: #fcfcfb;
-  --border: #e4e3df;
-  --grid: #ecebe7;
-  --text-primary: #0b0b0b;
-  --text-secondary: #52514e;
-  --text-muted: #7a7974;
-  --series-1: #2a78d6;
-  --series-1-hover: #1c5cab;
+  --surface-0: #f8f0e8;
+  --surface-1: #fdf8f3;
+  --border: #e8dfd2;
+  --grid: #efe7db;
+  --text-primary: #1e2a32;
+  --text-secondary: #4b565d;
+  --text-muted: #79807f;
+  --series-1: #4678ae;
+  --series-1-hover: #345d8c;
   --series-2: #eb6834;
-  --buy: #2a78d6;
+  --buy: #4678ae;
   --sell: #e34948;
   --neutral-mark: #a9a8a2;
   --link: #8f8e88;
+  /* brand: navy #1e2a32, cream #f8f0e8; chart accent = brand slate, saturated enough to read as colour (validated) */
   /* ordinal ramp (validated, light): small -> large */
-  --seq-0: #86b6ef;
-  --seq-1: #5598e7;
-  --seq-2: #2a78d6;
-  --seq-3: #1c5cab;
-  --seq-4: #104281;
+  --seq-0: #8aabd0;
+  --seq-1: #6690c1;
+  --seq-2: #4678ae;
+  --seq-3: #345d8c;
+  --seq-4: #22426a;
   --good: #0ca30c;
   --critical: #d03b3b;
   --warning: #b07a00;
@@ -99,7 +101,14 @@
 
 body {
   background: var(--surface-0);
+  /* brand: cream / navy, Montserrat for headings via --font-brand */
   color: var(--text-primary);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   font-variant-numeric: tabular-nums;
+}
+
+/* Headings in the brand typeface (Montserrat), matching the logo. */
+h1, h2, .font-brand {
+  font-family: var(--font-brand), var(--font-geist-sans), system-ui, sans-serif;
+  letter-spacing: -0.01em;
 }
