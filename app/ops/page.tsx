@@ -42,7 +42,7 @@ export default async function Ops() {
         <table className="w-full text-sm">
           <thead className="text-left text-xs text-ink-3">
             <tr className="border-b border-border">
-              {["Started (UTC)", "Dataset", "Window (end excl.)", "Engine", "State", "Rows", "Datapoints", "Exec credits", "Export ≈", "Exec", "Upserted"].map((h) => (
+              {["Started (UTC)", "By", "Dataset", "Window (end excl.)", "Engine", "State", "Rows", "Datapoints", "Exec credits", "Export ≈", "Exec", "Upserted"].map((h) => (
                 <th key={h} className="px-3 py-2 font-normal whitespace-nowrap">{h}</th>
               ))}
             </tr>
@@ -51,6 +51,7 @@ export default async function Ops() {
             {runs.map((r) => (
               <tr key={r.id} className="border-b border-border last:border-0 whitespace-nowrap">
                 <td className="px-3 py-2">{r.started_at}</td>
+                <td className="px-3 py-2 text-ink-2">{r.triggered_by ?? "—"}</td>
                 <td className="px-3 py-2">{r.dataset}</td>
                 <td className="px-3 py-2">{r.start_date} → {r.end_date}</td>
                 <td className="px-3 py-2">{r.performance}</td>
@@ -66,7 +67,7 @@ export default async function Ops() {
               </tr>
             ))}
             {!runs.length && (
-              <tr><td colSpan={11} className="px-3 py-6 text-center text-ink-3">No runs yet.</td></tr>
+              <tr><td colSpan={12} className="px-3 py-6 text-center text-ink-3">No runs yet.</td></tr>
             )}
           </tbody>
         </table>

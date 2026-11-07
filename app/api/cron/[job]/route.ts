@@ -18,6 +18,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ job: string
   const { job } = await ctx.params;
   const q = req.nextUrl.searchParams;
   const valid = (d: string | null) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : undefined);
+  const trigger = /vercel-cron/i.test(req.headers.get("user-agent") ?? "") ? "cron" : "manual";
   const deadline = Date.now() + (maxDuration - 20) * 1000;
   const opts = () => ({
     budgetMs: Math.max(10_000, deadline - Date.now()),
@@ -25,6 +26,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ job: string
     end: valid(q.get("end")),
     force: q.get("force") === "1",
     maxExportCredits: q.get("maxExport") ? Number(q.get("maxExport")) : undefined,
+    trigger,
   });
 
   const jobs: Record<string, string[]> = {
@@ -47,6 +49,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ job: string
 
   if (results.some((r) => r.action === "completed")) revalidateTag("trades", "max");
   revalidateTag("runs", "max");
-  const ok = results.every((r) => r.action !== "error");
-  return NextResponse.json(results, { status: ok ? 200 : 500 });
+  // The token list is a nice-to-have; only the Dune loaders decide success, so a
+  // Coinbase hiccup doesn't mark the whole cron run as failed.
+  const ok = results.every((r) => r.action !== "error" || r.dataset === "tokens");
+  console.log(JSON.stringify({ job, trigger, results }));
+  return NextResponse.json({ job, trigger, results }, { status: ok ? 200 : 500 });
 }

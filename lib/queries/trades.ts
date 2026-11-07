@@ -115,6 +115,7 @@ export type RunRow = {
   execution_ms: number | null;
   rows_upserted: number | null;
   started_at: string;
+  triggered_by: string | null;
 };
 
 export async function getRuns(limit = 50): Promise<RunRow[]> {
@@ -131,7 +132,8 @@ export async function getRuns(limit = 50): Promise<RunRow[]> {
            cost_credits::float8    AS cost_credits,
            export_credits_est::float8 AS export_credits_est,
            execution_ms, rows_upserted,
-           to_char(started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI') AS started_at
+           to_char(started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI') AS started_at,
+           triggered_by
     FROM dune_runs
     ORDER BY id DESC
     LIMIT ${limit}`);

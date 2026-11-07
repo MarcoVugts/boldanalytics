@@ -137,7 +137,7 @@ export async function nextWindow(dataset: string, override?: { start?: string; e
 
 export async function runIngest(
   datasetName: string,
-  opts: { budgetMs: number; start?: string; end?: string; force?: boolean; maxExportCredits?: number },
+  opts: { budgetMs: number; start?: string; end?: string; force?: boolean; maxExportCredits?: number; trigger?: string },
 ): Promise<IngestResult> {
   const ds = DATASETS[datasetName];
   if (!ds) throw new Error(`unknown dataset: ${datasetName}`);
@@ -172,8 +172,8 @@ export async function runIngest(
       PERFORMANCE,
     );
     const [row] = await sql<{ id: number }[]>`
-      INSERT INTO dune_runs (dataset, query_id, execution_id, start_date, end_date, performance, state)
-      VALUES (${ds.name}, ${qid}, ${executionId}, ${window.start}, ${window.end}, ${PERFORMANCE}, 'pending')
+      INSERT INTO dune_runs (dataset, query_id, execution_id, start_date, end_date, performance, state, triggered_by)
+      VALUES (${ds.name}, ${qid}, ${executionId}, ${window.start}, ${window.end}, ${PERFORMANCE}, 'pending', ${opts.trigger ?? null})
       RETURNING id`;
     runId = row.id;
   }
