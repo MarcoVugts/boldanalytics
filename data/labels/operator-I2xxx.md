@@ -41,3 +41,15 @@ Also different builds: I2604Ctrl solc 0.8.24 with "AR.." error codes; I2451B pro
 single-character errors. The I2xxx names are Dune metadata and are not evidence of a common operator.
 Web: 0x00ff842b... appears as a deployer in a chainswarm/chain-insights GitHub issue (Aero pool flows), no identity.
 Relabelled: I2451B = "Unknown market maker A", I2451D = "Unknown market maker B", a`b = "Unlabeled bot".
+
+## Other sources (2026-11-07): GitHub code search, OLI, independent analyses
+- 0x51c7 (Wintermute vault): independent analysis (nicolostancato-web/whale-radar, 2026-10-24) cites an Arkham entity label,
+  an Etherscan name tag and "the public Dune list of Wintermute addresses"; live since Aug 2023.
+- 0x83d5 (I2604Ctrl): growthepie / Open Labels Initiative: contract_name "StrategyExecutor", usage_category trading,
+  no owner_project, ~30M txs in 180 days. whale-radar: pool `recipient` in its swaps was the Wintermute contract.
+- 0x278d (I2451B): ava-labs/builders-hub registry "MEV Bot (SafeProxy arb)", category mev; other repos call it a private
+  MEV executor (proxy, direct V3 pool swaps). Optimism Blockscout titles it "StrategyExecutor"; no Arkham entity; ~$7M across chains.
+  Note: same contract *name* as 0x83d5 in OLI, but different owner Safe (2-of-4 vs 4-of-10, no shared signers). Unresolved.
+- 0x08fb (I2451D): no name tag anywhere; unverified; holds ~$10M (WETH, USDC, cbBTC); millions of txs.
+- News: no public source names the market makers for Coinbase tokenized stocks (custody Alpaca, prices Chainlink, liquidity Aerodrome).
+- Dune Spellbook (GitHub code search): no hits for these contracts.
