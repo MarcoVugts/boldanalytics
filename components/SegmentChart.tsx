@@ -59,8 +59,11 @@ export function SegmentChart({ rows }: { rows: SegmentRow[] }) {
 
   if (!rows.length) return <div className="py-12 text-center text-sm text-ink-3">No data yet</div>;
 
+  // Tell ShareCard which period this view covers when a single day is selected.
+  const periodAttrs = day === "all" ? {} : { "data-period-from": day, "data-period-to": day };
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" {...periodAttrs}>
       <div className="flex flex-wrap items-center gap-3">
         <div className="inline-flex rounded-md border border-border p-0.5 text-xs" role="tablist">
           {DIMS.map((d) => (
@@ -122,7 +125,8 @@ export function SegmentChart({ rows }: { rows: SegmentRow[] }) {
         </table>
       </div>
 
-      <div className="space-y-2">
+      {/* All-days breakdown; left out of a shared image when a single day is selected */}
+      <div className="space-y-2" {...(day === "all" ? {} : { "data-no-export": "" })}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="text-xs text-ink-3">Per day: share of traders (top bar) vs share of volume (bottom bar)</div>
           <div className="flex flex-wrap gap-3 text-xs text-ink-2">

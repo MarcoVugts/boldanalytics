@@ -50,6 +50,34 @@
   }
 }
 
+/* Exported share images always use the light palette, whatever the viewer's theme. */
+.export-light {
+  --surface-0: #f6f6f4;
+  --surface-1: #fcfcfb;
+  --border: #e4e3df;
+  --grid: #ecebe7;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #7a7974;
+  --series-1: #2a78d6;
+  --series-1-hover: #1c5cab;
+  --series-2: #eb6834;
+  --buy: #2a78d6;
+  --sell: #e34948;
+  --neutral-mark: #a9a8a2;
+  --link: #8f8e88;
+  /* ordinal ramp (validated, light): small -> large */
+  --seq-0: #86b6ef;
+  --seq-1: #5598e7;
+  --seq-2: #2a78d6;
+  --seq-3: #1c5cab;
+  --seq-4: #104281;
+  --good: #0ca30c;
+  --critical: #d03b3b;
+  --warning: #b07a00;
+  color-scheme: light;
+}
+
 @theme inline {
   --color-surface-0: var(--surface-0);
   --color-surface-1: var(--surface-1);

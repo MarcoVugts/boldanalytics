@@ -50,40 +50,40 @@ export default async function TokenizedStocks() {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <ShareCard slug="daily-dex-volume" asOf={overview.last_day ?? undefined} title="Daily DEX volume" sub="USD, all tokens">
+            <ShareCard slug="daily-dex-volume" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Daily DEX volume" sub="USD, all tokens">
               <BarChart unit="usd" label="Daily DEX volume in USD" data={daily.map((d) => ({ x: d.day, y: d.volume_usd }))} />
             </ShareCard>
-            <ShareCard slug="daily-active-wallets" asOf={overview.last_day ?? undefined} title="Daily active wallets" sub="Wallets with at least one trade">
+            <ShareCard slug="daily-active-wallets" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Daily active wallets" sub="Wallets with at least one trade">
               <BarChart unit="count" label="Daily active wallets" data={daily.map((d) => ({ x: d.day, y: d.wallets }))} />
             </ShareCard>
           </div>
 
-          <ShareCard slug="who-are-the-traders" asOf={overview.last_day ?? undefined} title="Who are the traders?" sub="Wallets bucketed per day by how much they traded, how often, and how many different stocks.">
+          <ShareCard slug="who-are-the-traders" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Who are the traders?" sub="Wallets bucketed per day by how much they traded, how often, and how many different stocks.">
             <SegmentChart rows={segments} />
           </ShareCard>
 
           <ShareCard
             slug="buy-sell-pressure"
-            asOf={overview.last_day ?? undefined}
+            asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined}
             title="Buy and sell pressure"
             sub={`Bought vs sold per stock. High-frequency = wallets with ${HF_TRADES_PER_DAY}+ trades that day (bots, market makers).`}
           >
             <PressureChart tokens={pressure.tokens} days={pressure.days} />
           </ShareCard>
 
-          <ShareCard slug="how-the-volume-flows" asOf={overview.last_day ?? undefined} title="How the volume flows" sub="Wallet type → app or operator the transaction went through → DEX that executed it → stock. Hover to follow a path.">
+          <ShareCard slug="how-the-volume-flows" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="How the volume flows" sub="Wallet type → app or operator the transaction went through → DEX that executed it → stock. Hover to follow a path.">
             <FlowSankey rows={flows} />
           </ShareCard>
 
-          <ShareCard slug="traded-together" asOf={overview.last_day ?? undefined} title="Traded together" sub="Which stocks the same (regular) traders trade. Affinity above 1× means more often together than chance.">
+          <ShareCard slug="traded-together" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Traded together" sub="Which stocks the same (regular) traders trade. Affinity above 1× means more often together than chance.">
             <CoTradeMatrix data={cotrade} />
           </ShareCard>
 
-          <ShareCard slug="who-trades-what" asOf={overview.last_day ?? undefined} title="Who trades what" sub="The 60 largest wallets and the stocks they trade. Hover a wallet or stock to see its connections.">
+          <ShareCard slug="who-trades-what" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Who trades what" sub="The 60 largest wallets and the stocks they trade. Hover a wallet or stock to see its connections.">
             <NetworkGraph wallets={network.wallets} tokens={network.tokens} edges={network.edges} />
           </ShareCard>
 
-          <ShareCard slug="by-token" asOf={overview.last_day ?? undefined} title="By token" sub="Volume share across all loaded days">
+          <ShareCard slug="by-token" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="By token" sub="Volume share across all loaded days">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="text-left text-xs text-ink-3">
@@ -118,10 +118,10 @@ export default async function TokenizedStocks() {
           </ShareCard>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <ShareCard slug="by-dex" asOf={overview.last_day ?? undefined} title="By DEX" sub="Where the swap executed (venues grouped, e.g. all Aerodrome pool types)">
+            <ShareCard slug="by-dex" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="By DEX" sub="Where the swap executed (venues grouped, e.g. all Aerodrome pool types)">
               <GroupTable rows={dexes} label="DEX" />
             </ShareCard>
-            <ShareCard slug="by-app-operator" asOf={overview.last_day ?? undefined} title="By app / operator" sub="Who the transaction went through: DEX router, aggregator or a trading firm's own contract">
+            <ShareCard slug="by-app-operator" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="By app / operator" sub="Who the transaction went through: DEX router, aggregator or a trading firm's own contract">
               <GroupTable rows={entries} label="App / operator" />
             </ShareCard>
           </div>
