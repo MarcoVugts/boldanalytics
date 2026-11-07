@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  --surface-0: #f8f1e7;
-  --surface-1: #fdfaf5;
-  --border: #e8dfd2;
-  --grid: #efe7db;
-  --text-primary: #1f2b33;
-  --text-secondary: #4b565d;
-  --text-muted: #79807f;
+  --surface-0: #f6f6f4;
+  --surface-1: #fcfcfb;
+  --border: #e4e3df;
+  --grid: #ecebe7;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #7a7974;
   --series-1: #2a78d6;
   --series-1-hover: #1c5cab;
   --series-2: #eb6834;
@@ -27,13 +27,13 @@
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --surface-0: #151d22;
-    --surface-1: #1c262d;
-    --border: #2c3840;
-    --grid: #25313a;
-    --text-primary: #f3ece2;
-    --text-secondary: #c4c3ba;
-    --text-muted: #8d9396;
+    --surface-0: #121211;
+    --surface-1: #1a1a19;
+    --border: #2e2e2c;
+    --grid: #262624;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #8f8e88;
     --series-1: #3987e5;
     --series-1-hover: #6da7ec;
     --series-2: #d95926;
@@ -41,24 +41,24 @@
     --sell: #e66767;
     --neutral-mark: #6b6a65;
     --link: #8f8e88;
-    --seq-0: #256abf;
-    --seq-1: #3987e5;
-    --seq-2: #6da7ec;
-    --seq-3: #9ec5f4;
-    --seq-4: #cde2fb;
+    --seq-0: #184f95;
+    --seq-1: #256abf;
+    --seq-2: #3987e5;
+    --seq-3: #6da7ec;
+    --seq-4: #9ec5f4;
     --warning: #fab219;
   }
 }
 
 /* Exported share images always use the light palette, whatever the viewer's theme. */
 .export-light {
-  --surface-0: #f8f1e7;
-  --surface-1: #fdfaf5;
-  --border: #e8dfd2;
-  --grid: #efe7db;
-  --text-primary: #1f2b33;
-  --text-secondary: #4b565d;
-  --text-muted: #79807f;
+  --surface-0: #f6f6f4;
+  --surface-1: #fcfcfb;
+  --border: #e4e3df;
+  --grid: #ecebe7;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #7a7974;
   --series-1: #2a78d6;
   --series-1-hover: #1c5cab;
   --series-2: #eb6834;
@@ -99,14 +99,7 @@
 
 body {
   background: var(--surface-0);
-  /* brand: cream / navy, Montserrat for headings via --font-brand */
   color: var(--text-primary);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   font-variant-numeric: tabular-nums;
-}
-
-/* Headings in the brand typeface (Montserrat), matching the logo. */
-h1, h2, .font-brand {
-  font-family: var(--font-brand), var(--font-geist-sans), system-ui, sans-serif;
-  letter-spacing: -0.01em;
 }
