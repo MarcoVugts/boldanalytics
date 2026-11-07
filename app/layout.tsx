@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Geist, Geist_Mono, Montserrat } from "next/font/google";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { NavLink } from "@/components/NavLink";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -27,10 +28,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}` }} />
       </head>
       <body className="min-h-full flex flex-col">
-        <header className="border-b border-border">
-          <nav className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-4 text-sm">
-            <Link href="/" aria-label="Bold Analytics home"><Logo height={26} /></Link>
-            <Link href="/stories/tokenized-stocks" className="text-ink-2 hover:text-ink">Tokenized Stocks</Link>
+        <header className="sticky top-0 z-40 border-b border-border bg-surface-0/85 backdrop-blur supports-[backdrop-filter]:bg-surface-0/75">
+          <nav className="mx-auto flex h-16 max-w-6xl items-center gap-5 px-4 sm:gap-8">
+            <Link href="/" aria-label="Bold Analytics home" className="flex items-center"><Logo height={30} /></Link>
+            <div className="flex h-full items-stretch gap-6">
+              <NavLink href="/stories/tokenized-stocks" match="/stories">Data stories</NavLink>
+            </div>
             <ThemeToggle />
           </nav>
         </header>
