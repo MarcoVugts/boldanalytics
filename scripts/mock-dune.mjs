@@ -12,7 +12,11 @@ const WALLETS = Array.from({ length: 1500 }, (_, i) => "0x" + ((i + 1) * 2654435
 const HF = WALLETS.slice(0, 12); // bots / market makers
 const execs = new Map();
 const VENUES = [["aerodrome", "2", 0.35], ["uniswap", "4", 0.3], ["uniswap", "3", 0.2], ["pancakeswap", "3", 0.08], ["balancer", "2", 0.04], ["curve", "", 0.03]];
-const ENTRIES = Array.from({ length: 14 }, (_, i) => "0x" + (i * 7919 + 4096).toString(16).padStart(40, String((i % 9) + 1)));
+// First entries are real Base contracts so local labels (sql/seed/app_labels.sql) resolve.
+const REAL = ["0x83d55acdc72027ed339d267eebaf9a41e47490d5", "0x278d858f05b94576c1e6f73285886876ff6ef8d2", "0x461063ad02d05b40ab0320453fab256aeac7c95e",
+  "0x9ee35bf1bd69a03c6f0393582030fce8bb93d418", "0x0fef9e88a7b76bcdbf451780c6774fe32965ee98", "0x6131b5fae19ea4f9d964eac0408e4408b66337b5",
+  "0x07b0590260fdc7473dd43d4ab03485f29c4bf18c", "0x0000000000001ff3684f28c67538d4d072c22734"];
+const ENTRIES = Array.from({ length: 14 }, (_, i) => REAL[i] ?? "0x" + (i * 7919 + 4096).toString(16).padStart(40, String((i % 9) + 1)));
 const ROUTES = [];
 for (const [ei, e] of ENTRIES.entries())
   for (const [vi, [project, version]] of VENUES.entries())

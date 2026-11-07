@@ -24,4 +24,11 @@ for (const file of (await readdir(dir)).filter((f) => f.endsWith(".sql")).sort()
   console.log("applied", file);
 }
 console.log("migrations up to date");
+
+// Seeds (idempotent, re-applied every build): reference data such as app labels.
+const seedDir = new URL("../sql/seed/", import.meta.url);
+for (const file of (await readdir(seedDir).catch(() => [])).filter((f) => f.endsWith(".sql")).sort()) {
+  await sql.unsafe(await readFile(new URL(file, seedDir), "utf8"));
+  console.log("seeded", file);
+}
 await sql.end();

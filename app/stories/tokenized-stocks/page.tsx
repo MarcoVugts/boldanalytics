@@ -68,7 +68,7 @@ export default async function TokenizedStocks() {
             <PressureChart tokens={pressure.tokens} days={pressure.days} />
           </Card>
 
-          <Card title="How the volume flows" sub="Wallet type → app or router the transaction called → DEX that executed it → stock. Hover to follow a path.">
+          <Card title="How the volume flows" sub="Wallet type → app or operator the transaction went through → DEX that executed it → stock. Hover to follow a path.">
             <FlowSankey rows={flows} />
           </Card>
 
@@ -115,11 +115,11 @@ export default async function TokenizedStocks() {
           </Card>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <Card title="By DEX" sub="Where the swap executed">
+            <Card title="By DEX" sub="Where the swap executed (venues grouped, e.g. all Aerodrome pool types)">
               <GroupTable rows={dexes} label="DEX" />
             </Card>
-            <Card title="By entry contract" sub="Contract the transaction called (router / aggregator), top 10">
-              <GroupTable rows={entries} label="Contract" mono />
+            <Card title="By app / operator" sub="Who the transaction went through: DEX router, aggregator or a trading firm's own contract">
+              <GroupTable rows={entries} label="App / operator" />
             </Card>
           </div>
 
@@ -140,6 +140,10 @@ export default async function TokenizedStocks() {
             </table>
           </details>
 
+          <p className="text-xs text-ink-3">
+            App labels: Wintermute is attributed via a shared multisig with a wallet Arkham labels as Wintermute; &ldquo;(suspected)&rdquo; marks contracts linked only by naming.
+            Other names come from Dune contract metadata. Unlabeled bot = unknown contract with few senders and many trades.
+          </p>
           <p className="text-xs text-ink-3">
             Totals count a stock-to-stock swap (e.g. AAPL → NVDA) once; the per-token table counts it on both tokens.
           </p>
@@ -168,6 +172,9 @@ function GroupTable({ rows, label, mono }: { rows: GroupRow[]; label: string; mo
             <tr key={r.key} className="border-b border-border last:border-0">
               <td className={`py-2 pr-4 ${mono ? "font-mono text-xs" : "font-medium"}`} title={r.key}>
                 {mono ? `${r.key.slice(0, 8)}…${r.key.slice(-6)}` : r.key}
+                {r.kind && r.kind !== "unknown" && (
+                  <span className="ml-2 rounded bg-surface-0 px-1.5 py-0.5 text-[11px] font-normal text-ink-3">{KIND[r.kind] ?? r.kind}</span>
+                )}
               </td>
               <td className="py-2 pr-4 text-right">{usd(r.volume_usd)}</td>
               <td className="py-2 pr-4 text-right text-ink-2">{((r.volume_usd / total) * 100).toFixed(1)}%</td>
@@ -180,3 +187,15 @@ function GroupTable({ rows, label, mono }: { rows: GroupRow[]; label: string; mo
     </div>
   );
 }
+
+const KIND: Record<string, string> = {
+  market_maker: "market maker",
+  dex_router: "DEX router",
+  aggregator: "aggregator",
+  smart_wallet: "smart wallets",
+  bridge: "bridge",
+  multisig: "multisig",
+  defi_protocol: "DeFi",
+  bot: "bot",
+  other: "other",
+};

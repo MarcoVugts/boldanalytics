@@ -17,7 +17,7 @@ export type Overview = {
 
 // Volume is stored per token leg. A stock→stock swap (AAPL→NVDA) appears on both
 // tokens; cross_usd / cross_swaps hold it once so cross-token totals subtract it.
-export type GroupRow = { key: string; volume_usd: number; swaps: number; wallets: number };
+export type GroupRow = { key: string; volume_usd: number; swaps: number; wallets: number; kind?: string };
 
 export async function getOverview(): Promise<Overview | null> {
   "use cache";
@@ -71,29 +71,30 @@ export async function getByDex(): Promise<GroupRow[]> {
   cacheTag("trades");
   if (!hasDb()) return [];
   return plain(await db()<GroupRow[]>`
-    SELECT COALESCE(r.project || CASE WHEN r.version <> '' THEN ' ' || r.version ELSE '' END, 'unknown') AS key,
+    SELECT COALESCE(r.dex, 'Unknown') AS key,
            SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0) - COALESCE(cross_usd,0))::float8 AS volume_usd,
            SUM(swaps)::float8               AS swaps,
            COUNT(DISTINCT wallet)::float8   AS wallets
     FROM trades_daily t
-    LEFT JOIN routes r USING (route)
+    LEFT JOIN routes_labeled r USING (route)
     GROUP BY 1
     ORDER BY volume_usd DESC`);
 }
 
-/** Volume by the contract the tx called (router / aggregator / interface). */
-export async function getByEntryContract(limit = 10): Promise<GroupRow[]> {
+/** Volume by app / operator (labeled tx_to: router, aggregator, market maker, ...). */
+export async function getByEntryContract(limit = 12): Promise<GroupRow[]> {
   "use cache";
   cacheLife("hours");
   cacheTag("trades");
   if (!hasDb()) return [];
   return plain(await db()<GroupRow[]>`
-    SELECT COALESCE('0x' || encode(r.tx_to, 'hex'), 'unknown') AS key,
+    SELECT COALESCE(r.app || CASE WHEN r.app_confidence = 'suspected' AND r.app <> 'Unlabeled bot' THEN ' (suspected)' ELSE '' END, 'Unlabeled') AS key,
+           MAX(COALESCE(r.app_kind, 'unknown'))   AS kind,
            SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0) - COALESCE(cross_usd,0))::float8 AS volume_usd,
            SUM(swaps)::float8               AS swaps,
            COUNT(DISTINCT wallet)::float8   AS wallets
     FROM trades_daily t
-    LEFT JOIN routes r USING (route)
+    LEFT JOIN routes_labeled r USING (route)
     GROUP BY 1
     ORDER BY volume_usd DESC
     LIMIT ${limit}`);

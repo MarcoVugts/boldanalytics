@@ -67,13 +67,13 @@ export async function getFlows(opts = { entries: 8, dexes: 6, tokens: 10 }): Pro
       ),
       base AS (
         SELECT CASE WHEN w.t >= ${HF_TRADES_PER_DAY} THEN 'High-frequency' ELSE 'Regular' END AS segment,
-               COALESCE('0x' || encode(r.tx_to, 'hex'), 'unknown') AS entry,
-               COALESCE(r.project || CASE WHEN r.version <> '' THEN ' v' || r.version ELSE '' END, 'unknown') AS dex,
+               COALESCE(r.app || CASE WHEN r.app_confidence = 'suspected' AND r.app <> 'Unlabeled bot' THEN ' (suspected)' ELSE '' END, 'Unlabeled') AS entry,
+               COALESCE(r.dex, 'Unknown') AS dex,
                t.symbol,
                COALESCE(t.buy_usd, 0) + COALESCE(t.sell_usd, 0) AS v
         FROM trades_daily t
         JOIN w USING (day, wallet)
-        LEFT JOIN routes r USING (route)
+        LEFT JOIN routes_labeled r USING (route)
       ),
       te AS (SELECT entry  FROM base GROUP BY 1 ORDER BY SUM(v) DESC LIMIT ${opts.entries}),
       td AS (SELECT dex    FROM base GROUP BY 1 ORDER BY SUM(v) DESC LIMIT ${opts.dexes}),
