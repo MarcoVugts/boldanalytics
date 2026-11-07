@@ -29,3 +29,15 @@ On 2026-11-05 four contracts with I2xxx-style names were `tx_to` for ~68% of tok
 ## How to say it publicly
 "Contracts controlled by the same multisig as a wallet Arkham attributes to Wintermute" or
 "attributed to Wintermute (Arkham)". Avoid stating it as fact; consider asking Wintermute for comment.
+
+## Update 2026-11-07: the I2451* contracts are probably NOT Wintermute
+| Contract | Owner / admin | Overlap with Wintermute Safe 0x8ad1 (10 signers) |
+|---|---|---|
+| I2451B 0x278d... | custom proxy, "Not proxy owner" -> Safe 0xe2963654c2d243c52ebc6998b5a40eb5d2cd5658, **2-of-4**: 0xca1b37bc..., 0x610e61b9..., 0xa74fd355..., 0x6e1110d6... | none |
+| I2451D 0x08fb... | immutable admin 0x00ff842be7e390605e7e3664ebfa0e432806500d (EOA, no code) | n/a |
+| a`b 0x6104... | EIP-1967 proxy -> impl 0x8077dc1b...; admin slot empty | unknown |
+
+Also different builds: I2604Ctrl solc 0.8.24 with "AR.." error codes; I2451B proxy and I2451D solc 0.8.28 with
+single-character errors. The I2xxx names are Dune metadata and are not evidence of a common operator.
+Web: 0x00ff842b... appears as a deployer in a chainswarm/chain-insights GitHub issue (Aero pool flows), no identity.
+Relabelled: I2451B = "Unknown market maker A", I2451D = "Unknown market maker B", a`b = "Unlabeled bot".

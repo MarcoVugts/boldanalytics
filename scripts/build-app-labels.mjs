@@ -10,12 +10,14 @@ const MANUAL = {
     note: "I2604Ctrl; owner Safe 0x8ad1 also owns vault 0x51c7, which Arkham attributes to Wintermute" },
   "0x51c72848c68a965f66fa7a88855f9f7784502a7f": { label: "Wintermute", kind: "market_maker", confidence: "attributed",
     note: "Arkham: Wintermute; public posts list it as Wintermute EVM address" },
-  "0x278d858f05b94576c1e6f73285886876ff6ef8d2": { label: "Wintermute", kind: "market_maker", confidence: "suspected",
-    note: "I2451B; same naming family as I2604Ctrl, no on-chain link yet" },
-  "0x08fb33543ad633db94282df364ad80feb8d9fc35": { label: "Wintermute", kind: "market_maker", confidence: "suspected",
-    note: "I2451D; same naming family as I2604Ctrl, no on-chain link yet" },
-  "0x61040e143a77f165ba44543af4a079f2c809d14b": { label: "Wintermute", kind: "market_maker", confidence: "suspected",
-    note: "I2451bt proxy; same naming family" },
+  // I2451* were "suspected Wintermute" by naming only. On-chain checks (2026-11-07) point away:
+  // different owners, no shared multisig signers, different compiler/proxy patterns.
+  "0x278d858f05b94576c1e6f73285886876ff6ef8d2": { label: "Unknown market maker A", kind: "market_maker", confidence: "confirmed",
+    note: "I2451B; proxy owned by Safe 0xe2963654 (2-of-4), no signer overlap with Wintermute Safe 0x8ad1" },
+  "0x08fb33543ad633db94282df364ad80feb8d9fc35": { label: "Unknown market maker B", kind: "market_maker", confidence: "confirmed",
+    note: "I2451D; admin is EOA 0x00ff842be7e390605e7e3664ebfa0e432806500d" },
+  "0x61040e143a77f165ba44543af4a079f2c809d14b": { label: "Unlabeled bot", kind: "bot", confidence: "suspected",
+    note: "I2451bt; EIP-1967 proxy -> 0x8077dc1b, admin slot empty" },
 };
 
 // Dune contract namespace -> [label, kind]

@@ -144,7 +144,8 @@ export default async function TokenizedStocks() {
           </details>
 
           <p className="text-xs text-ink-3">
-            App labels: Wintermute is attributed via a shared multisig with a wallet Arkham labels as Wintermute; &ldquo;(suspected)&rdquo; marks contracts linked only by naming.
+            App labels: Wintermute is attributed via a shared multisig with a wallet Arkham labels as Wintermute; &ldquo;(suspected)&rdquo; marks weaker attributions.
+            &ldquo;Unknown market maker&rdquo; = professional trading contracts whose owner we could not identify.
             Other names come from Dune contract metadata. Unlabeled bot = unknown contract with few senders and many trades.
           </p>
           <p className="text-xs text-ink-3">
