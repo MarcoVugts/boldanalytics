@@ -51,10 +51,10 @@ export default async function TokenizedStocks() {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <ShareCard slug="daily-dex-volume" format="portrait" exportSub="USD, all tokens" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Daily DEX volume" sub={volumeSub}>
+            <ShareCard slug="daily-dex-volume" exportSub="USD, all tokens" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Daily DEX volume" sub={volumeSub}>
               <BarChart unit="usd" label="Daily DEX volume in USD" markMax="record day" data={daily.map((d) => ({ x: d.day, y: d.volume_usd }))} />
             </ShareCard>
-            <ShareCard slug="daily-active-wallets" format="portrait" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Daily active wallets" sub="Wallets with at least one trade">
+            <ShareCard slug="daily-active-wallets" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Daily active wallets" sub="Wallets with at least one trade">
               <BarChart unit="count" label="Daily active wallets" data={daily.map((d) => ({ x: d.day, y: d.wallets }))} />
             </ShareCard>
           </div>
@@ -65,6 +65,7 @@ export default async function TokenizedStocks() {
 
           <ShareCard
             slug="buy-sell-pressure"
+            exportZoom={1.1}
             asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined}
             title="Buy and sell pressure"
             sub={`Bought vs sold per stock. High-frequency = wallets with ${HF_TRADES_PER_DAY}+ trades that day (bots, market makers).`}
@@ -72,19 +73,19 @@ export default async function TokenizedStocks() {
             <PressureChart tokens={pressure.tokens} days={pressure.days} />
           </ShareCard>
 
-          <ShareCard slug="how-the-volume-flows" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="How the volume flows" sub="Wallet type → app or operator the transaction went through → DEX that executed it → stock. Hover to follow a path.">
+          <ShareCard slug="how-the-volume-flows" exportZoom={1} asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="How the volume flows" sub="Wallet type → app or operator the transaction went through → DEX that executed it → stock. Hover to follow a path.">
             <FlowSankey rows={flows} />
           </ShareCard>
 
-          <ShareCard slug="traded-together" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Traded together" sub="Which stocks the same (regular) traders trade. Affinity above 1× means more often together than chance.">
+          <ShareCard slug="traded-together" exportZoom={1} asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Traded together" sub="Which stocks the same (regular) traders trade. Affinity above 1× means more often together than chance.">
             <CoTradeMatrix data={cotrade} />
           </ShareCard>
 
-          <ShareCard slug="who-trades-what" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Who trades what" sub="The 60 largest wallets and the stocks they trade. Hover a wallet or stock to see its connections.">
+          <ShareCard slug="who-trades-what" exportZoom={1} asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Who trades what" sub="The 60 largest wallets and the stocks they trade. Hover a wallet or stock to see its connections.">
             <NetworkGraph wallets={network.wallets} tokens={network.tokens} edges={network.edges} />
           </ShareCard>
 
-          <ShareCard slug="by-token" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="By token" sub="Volume share across all loaded days">
+          <ShareCard slug="by-token" exportZoom={1} asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="By token" sub="Volume share across all loaded days">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="text-left text-xs text-ink-3">

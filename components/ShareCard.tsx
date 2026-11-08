@@ -35,8 +35,9 @@ export function ShareCard({
   slug,
   asOf,
   from,
-  format = "wide",
+  format = "portrait",
   exportSub,
+  exportZoom = 1.25,
   children,
 }: {
   title: string;
@@ -50,6 +51,8 @@ export function ShareCard({
   format?: "wide" | "portrait";
   /** shorter subtitle for the portrait image (default: sub) */
   exportSub?: string;
+  /** portrait image: scale the chart (phone-style narrow layout, larger text). 1 = as is */
+  exportZoom?: number;
   children: React.ReactNode;
 }) {
   const frame = useRef<HTMLDivElement>(null);
@@ -154,7 +157,9 @@ export function ShareCard({
         </button>
       </div>
       <div className={portrait ? "mt-5" : "mt-4"}>
-        <ExportContext.Provider value={{ exporting, format }}>{children}</ExportContext.Provider>
+        <ExportContext.Provider value={{ exporting, format }}>
+          {portrait && exportZoom !== 1 ? <div style={{ zoom: exportZoom }}>{children}</div> : children}
+        </ExportContext.Provider>
       </div>
       {exporting && (
         <div className={`mt-6 flex items-center justify-between border-t border-border pt-4 text-ink-3 ${portrait ? "text-[13px]" : "text-xs"}`}>

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { int } from "@/lib/format";
 import type { CoTradeData } from "@/lib/queries/segments";
+import { useExport } from "./ExportContext";
 
 type Mode = "overlap" | "lift";
 
@@ -12,6 +13,7 @@ type Mode = "overlap" | "lift";
  *  lift:    overlap / share of all traders who traded Y (diverging around 1×)
  */
 export function CoTradeMatrix({ data }: { data: CoTradeData }) {
+  const exp = useExport();
   const [mode, setMode] = useState<Mode>("lift");
   const [hover, setHover] = useState<{ x: string; y: string } | null>(null);
   const syms = data.symbols.map((s) => s.symbol);
@@ -81,7 +83,7 @@ export function CoTradeMatrix({ data }: { data: CoTradeData }) {
         )}
       </div>
 
-      <div className="overflow-x-auto">
+      <div className={exp.exporting ? "" : "overflow-x-auto"}>
         <table className="border-separate border-spacing-[2px] text-xs" onMouseLeave={() => setHover(null)}>
           <thead>
             <tr>
@@ -97,7 +99,7 @@ export function CoTradeMatrix({ data }: { data: CoTradeData }) {
                 <th className={`sticky left-0 bg-surface-1 pr-2 text-right font-medium ${hover?.x === x ? "text-ink" : "text-ink-2"}`}>{x}</th>
                 {syms.map((y) => (
                   <td key={y} onMouseEnter={() => setHover({ x, y })}
-                    className={`h-8 min-w-[52px] rounded-sm text-center tabular-nums ${hover && hover.x === x && hover.y === y ? "outline outline-2 outline-[var(--text-primary)]" : ""}`}
+                    className={`h-8 ${exp.exporting ? "min-w-[42px]" : "min-w-[52px]"} rounded-sm text-center tabular-nums ${hover && hover.x === x && hover.y === y ? "outline outline-2 outline-[var(--text-primary)]" : ""}`}
                     style={style(x, y)}>
                     {fmt(x, y)}
                   </td>
@@ -115,7 +117,7 @@ export function CoTradeMatrix({ data }: { data: CoTradeData }) {
             <b className="text-ink">{h.lift.toFixed(1)}×</b> the share of all traders who trade {hover.y} ({Math.round((h.ny / (data.total || 1)) * 100)}%).
           </>
         ) : (
-          <span className="text-ink-3">Hover a cell. Diagonal = number of traders of that stock. Regular traders only ({int(data.total)} wallets); high-frequency wallets excluded.</span>
+          <span className="text-ink-3">{exp.exporting ? "" : "Hover a cell. "}Diagonal = number of traders of that stock. Regular traders only ({int(data.total)} wallets); high-frequency wallets excluded.</span>
         )}
       </p>
     </div>

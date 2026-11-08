@@ -35,7 +35,7 @@ export function BarChart({
   const format = unit === "usd" ? usd : num;
   const exp = useExport();
   // Portrait image export: a taller chart, like the phone layout.
-  const HEIGHT = exp.exporting && exp.format === "portrait" ? 410 : BASE_HEIGHT;
+  const HEIGHT = exp.exporting && exp.format === "portrait" ? 330 : BASE_HEIGHT;
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(640);
   const [hover, setHover] = useState<number | null>(null);

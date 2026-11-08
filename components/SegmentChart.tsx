@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { int, num, usd } from "@/lib/format";
 import { BUCKETS, type Dimension, type SegmentRow } from "@/lib/segments-shared";
+import { useExport } from "./ExportContext";
 
 const DIMS: { key: Dimension; label: string; unit: string }[] = [
   { key: "volume", label: "By volume", unit: "USD traded by the wallet that day" },
@@ -20,6 +21,7 @@ const pct = (v: number) => (v >= 10 ? v.toFixed(0) : v >= 1 ? v.toFixed(1) : v >
  * its share of traders next to its share of volume, so concentration is visible at a glance.
  */
 export function SegmentChart({ rows }: { rows: SegmentRow[] }) {
+  const exp = useExport();
   const [dim, setDim] = useState<Dimension>("volume");
   const days = useMemo(() => [...new Set(rows.map((r) => r.day))].sort(), [rows]);
   const [day, setDay] = useState<string>("all");
@@ -126,7 +128,12 @@ export function SegmentChart({ rows }: { rows: SegmentRow[] }) {
       </div>
 
       {/* All-days breakdown; left out of a shared image when a single day is selected */}
-      <div className="space-y-2" {...(day === "all" ? {} : { "data-no-export": "" })}>
+      {/* left out of the portrait image too: one row per day is too long for a shared picture */}
+      <div
+        className="space-y-2"
+        style={exp.exporting && exp.format === "portrait" ? { display: "none" } : undefined}
+        {...(day === "all" ? {} : { "data-no-export": "" })}
+      >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="text-xs text-ink-3">Per day: share of traders (top bar) vs share of volume (bottom bar)</div>
           <div className="flex flex-wrap gap-3 text-xs text-ink-2">
