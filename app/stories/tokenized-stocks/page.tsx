@@ -73,7 +73,7 @@ export default async function TokenizedStocks() {
             <PressureChart tokens={pressure.tokens} days={pressure.days} />
           </ShareCard>
 
-          <ShareCard slug="how-the-volume-flows" exportZoom={1} asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="How the volume flows" sub="Wallet type → app or operator the transaction went through → DEX that executed it → stock. Hover to follow a path.">
+          <ShareCard slug="how-the-volume-flows" format="wide" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="How the volume flows" sub="Wallet type → app or operator the transaction went through → DEX that executed it → stock. Hover to follow a path.">
             <FlowSankey rows={flows} />
           </ShareCard>
 

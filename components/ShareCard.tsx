@@ -121,31 +121,19 @@ export function ShareCard({
       className={`min-w-0 rounded-lg border border-border bg-surface-1 ${exporting ? `export-light text-ink ${portrait ? "p-9" : "p-10"}` : "p-4"}`}
       style={exporting ? { position: "fixed", left: -20000, top: 0, width: EXPORT_WIDTH[format], zIndex: -1 } : undefined}
     >
-      {exporting && !portrait && (
-        <div className="mb-3 flex items-center justify-between text-sm">
-          <Logo height={30} forceLight />
-          <span className="text-ink-3">Tokenized Stocks on Base</span>
-        </div>
-      )}
       <div className="flex items-start justify-between gap-3">
         <div>
-          {portrait ? (
+          {exporting ? (
             // One title block: story and chart in the same size, the chart line a shade lighter.
-            <h2 className="text-[30px] font-extrabold leading-[1.15] tracking-tight">
+            <h2 className={`${portrait ? "text-[30px]" : "text-[34px]"} font-extrabold leading-[1.15] tracking-tight`}>
               <span className="block text-ink">Tokenized stocks on Base</span>
               <span className="block text-ink-2">{title}</span>
             </h2>
           ) : (
-            <h2 className={`${exporting ? "text-2xl font-extrabold tracking-tight" : "text-sm font-medium"} text-ink`}>{title}</h2>
+            <h2 className="text-sm font-medium text-ink">{title}</h2>
           )}
-          {subText && <p className={`${portrait ? "mt-2" : "mt-1"} ${exporting ? "text-[15px]" : "text-xs"} text-ink-3`}>{subText}</p>}
+          {subText && <p className={`${exporting ? "mt-2 text-[15px]" : "mt-1 text-xs"} text-ink-3`}>{subText}</p>}
         </div>
-        {exporting && !portrait && period && (
-          <div className="shrink-0 rounded-md bg-surface-0 px-3 py-1.5 text-right">
-            <div className="text-base font-semibold text-ink">{period}</div>
-            <div className="text-xs text-ink-3">UTC · daily data</div>
-          </div>
-        )}
         <button
           data-no-export
           onClick={exportImage}
@@ -162,18 +150,9 @@ export function ShareCard({
         </ExportContext.Provider>
       </div>
       {exporting && (
-        <div className={`mt-6 flex items-center justify-between border-t border-border pt-4 text-ink-3 ${portrait ? "text-[13px]" : "text-xs"}`}>
-          {portrait ? <Logo height={30} forceLight /> : <span />}
-          <div className="text-right leading-relaxed">
-            {portrait ? (
-              <>
-                <div>Data via Dune{period ? ` · ${period} (UTC)` : ""}</div>
-                <div>Not financial advice</div>
-              </>
-            ) : (
-              footerNote
-            )}
-          </div>
+        <div className="mt-6 flex items-center justify-between border-t border-border pt-4 text-[13px] text-ink-3">
+          <Logo height={portrait ? 30 : 34} forceLight />
+          <div className="text-right leading-relaxed">{footerNote}</div>
         </div>
       )}
       {error && <p data-no-export className="mt-2 text-xs text-critical">{error}</p>}

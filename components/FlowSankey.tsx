@@ -8,7 +8,7 @@ import { shortAddr, useWidth } from "./useWidth";
 import { useExport } from "./ExportContext";
 
 type N = { id: string; stage: number; label: string };
-type L = { source: string; target: string; value: number; segment: string };
+type L = { source: string; target: string; value: number };
 
 const STAGES = ["Wallet type", "App / operator", "DEX", "Stock"];
 
@@ -21,7 +21,7 @@ export function FlowSankey({ rows }: { rows: FlowRow[] }) {
   const exp = useExport();
   // Image export: use the card width as is (no horizontal scroll) and more height for the labels.
   const W = exp.exporting ? Math.max(420, width) : Math.max(640, width);
-  const H = exp.exporting ? 720 : 480;
+  const H = exp.exporting ? (exp.format === "portrait" ? 720 : 600) : 480;
   // Stock labels sit to the right of the last column, so every gap holds one column of labels.
   const RIGHT = exp.exporting ? 150 : 170;
   const fs = exp.exporting ? 13 : 11;
@@ -34,10 +34,9 @@ export function FlowSankey({ rows }: { rows: FlowRow[] }) {
       if (!nodes.has(id)) nodes.set(id, { id, stage, label });
       return id;
     };
-    // Links are kept per starting segment, so the colour of the wallet type runs through to the stock.
-    const link = (a: string, b: string, v: number, segment: string) => {
-      const k = `${a}→${b}|${segment}`;
-      const cur = links.get(k) ?? { source: a, target: b, value: 0, segment };
+    const link = (a: string, b: string, v: number) => {
+      const k = `${a}→${b}`;
+      const cur = links.get(k) ?? { source: a, target: b, value: 0 };
       cur.value += v;
       links.set(k, cur);
     };
@@ -46,9 +45,9 @@ export function FlowSankey({ rows }: { rows: FlowRow[] }) {
       const e = node(1, r.entry);
       const d = node(2, r.dex);
       const t = node(3, r.symbol);
-      link(s, e, r.volume, r.segment);
-      link(e, d, r.volume, r.segment);
-      link(d, t, r.volume, r.segment);
+      link(s, e, r.volume);
+      link(e, d, r.volume);
+      link(d, t, r.volume);
     }
     if (!nodes.size) return null;
     const layout = sankey<N, L>()
@@ -57,8 +56,6 @@ export function FlowSankey({ rows }: { rows: FlowRow[] }) {
       .nodeWidth(10)
       .nodePadding(10)
       .nodeSort((a, b) => (b.value ?? 0) - (a.value ?? 0))
-      // Same segment order in every bundle: high-frequency on top, then regular.
-      .linkSort((a, b) => (a.segment === b.segment ? 0 : a.segment === "High-frequency" ? -1 : 1))
       .extent([
         [8, 24],
         [W - RIGHT, H - 8],
@@ -69,7 +66,6 @@ export function FlowSankey({ rows }: { rows: FlowRow[] }) {
   if (!graph) return <div className="py-12 text-center text-sm text-ink-3">No data yet</div>;
 
   const path = sankeyLinkHorizontal();
-  const segColor = (seg: string) => (seg === "High-frequency" ? "var(--series-2)" : "var(--series-1)");
   const pct = (v: number) => {
     const p = (v / total) * 100;
     return p < 1 ? "<1%" : `${Math.round(p)}%`;
@@ -101,8 +97,8 @@ export function FlowSankey({ rows }: { rows: FlowRow[] }) {
                 <path
                   key={i}
                   d={path(l) ?? undefined}
-                  stroke={segColor(l.segment)}
-                  strokeOpacity={hover ? (on ? 0.6 : 0.06) : 0.32}
+                  stroke={hover && on ? "var(--series-1)" : "var(--link)"}
+                  strokeOpacity={hover ? (on ? 0.55 : 0.08) : 0.28}
                   strokeWidth={Math.max(1, l.width ?? 1)}
                   onMouseMove={(e) => {
                     const box = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
@@ -110,7 +106,7 @@ export function FlowSankey({ rows }: { rows: FlowRow[] }) {
                       x: e.clientX - box.left,
                       y: e.clientY - box.top,
                       text: `${shortAddr(s.label)} → ${shortAddr(t.label)}`,
-                      sub: `${l.segment} · ${usd(l.value)} · ${((l.value / total) * 100).toFixed(1)}%`,
+                      sub: `${usd(l.value)} · ${((l.value / total) * 100).toFixed(1)}%`,
                     });
                   }}
                   onMouseLeave={() => setTip(null)}
@@ -124,13 +120,7 @@ export function FlowSankey({ rows }: { rows: FlowRow[] }) {
             return (
               <g key={n.id} opacity={dim ? 0.35 : 1} onMouseEnter={() => setHover(n.id)}>
                 <rect x={n.x0} y={n.y0} width={(n.x1 ?? 0) - (n.x0 ?? 0)} height={h} rx={2}
-                  fill={
-                    n.stage === 0
-                      ? segColor(n.label)
-                      : n.label.startsWith("Other") || n.label === "unknown" || n.label.startsWith("Unlabeled") || n.label === "Unknown"
-                        ? "var(--neutral-mark)"
-                        : "var(--text-secondary)"
-                  } />
+                  fill={n.label.startsWith("Other") || n.label === "unknown" || n.label.startsWith("Unlabeled") || n.label === "Unknown" ? "var(--neutral-mark)" : n.stage === 0 && n.label === "High-frequency" ? "var(--series-2)" : "var(--series-1)"} />
                 {h > 9 && (() => {
                   // Name on one line, "$value · share" below it when the block is tall enough.
                   const x = (n.x1 ?? 0) + 6;
