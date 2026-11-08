@@ -3,8 +3,11 @@
 import { useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import { Logo } from "./Logo";
+import { ExportContext } from "./ExportContext";
 
-const EXPORT_WIDTH = 1200; // layout width; exported at 3x = 3600px (X accepts up to 4096px)
+// Layout widths; exported at 3x. Wide: 3600 px. Portrait: 2160 px wide, about 4:5, which X shows
+// largest in the phone timeline (the layout of the chart follows the phone version).
+const EXPORT_WIDTH = { wide: 1200, portrait: 720 } as const;
 const PIXEL_RATIO = 3;
 
 const fmtDay = (d: string) =>
@@ -32,6 +35,7 @@ export function ShareCard({
   slug,
   asOf,
   from,
+  format = "wide",
   children,
 }: {
   title: string;
@@ -41,6 +45,8 @@ export function ShareCard({
   asOf?: string;
   /** first day covered (YYYY-MM-DD) */
   from?: string;
+  /** image shape: wide (charts that need width) or portrait (4:5, logo at the bottom) */
+  format?: "wide" | "portrait";
   children: React.ReactNode;
 }) {
   const frame = useRef<HTMLDivElement>(null);
@@ -71,7 +77,7 @@ export function ShareCard({
         backgroundColor: bg,
         // the live node sits off-screen; render the clone in normal flow
         style: { position: "static", left: "auto", top: "auto", zIndex: "auto" },
-        width: EXPORT_WIDTH,
+        width: EXPORT_WIDTH[format],
         filter: (n) => !(n instanceof HTMLElement && n.dataset.noExport !== undefined),
       });
       const name = `boldanalytics-${slug}-${(pf ?? "")}${pt && pt !== pf ? `_${pt}` : ""}.png`.replace(/-\.png$/, ".png");
@@ -94,29 +100,35 @@ export function ShareCard({
     }
   }
 
+  const portrait = exporting && format === "portrait";
+  const subText = sub && exporting ? sub.replace(/\s*Hover[^.]*\./g, "") : sub; // no hover hints in an image
+  const footerNote = (
+    <>
+      <div>Data via Dune{period ? ` · ${period} (UTC)` : ""}</div>
+      <div>Not financial advice</div>
+    </>
+  );
+
   const card = (
     <section
       ref={frame}
-      className={`min-w-0 rounded-lg border border-border bg-surface-1 ${exporting ? "export-light p-10 text-ink" : "p-4"}`}
-      style={exporting ? { position: "fixed", left: -20000, top: 0, width: EXPORT_WIDTH, zIndex: -1 } : undefined}
+      className={`min-w-0 rounded-lg border border-border bg-surface-1 ${exporting ? `export-light text-ink ${portrait ? "p-9" : "p-10"}` : "p-4"}`}
+      style={exporting ? { position: "fixed", left: -20000, top: 0, width: EXPORT_WIDTH[format], zIndex: -1 } : undefined}
     >
-      {exporting && (
+      {exporting && !portrait && (
         <div className="mb-3 flex items-center justify-between text-sm">
           <Logo height={30} forceLight />
           <span className="text-ink-3">Tokenized Stocks on Base</span>
         </div>
       )}
+      {portrait && <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-ink-3">Tokenized Stocks on Base</div>}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className={`${exporting ? "text-2xl font-semibold" : "text-sm font-medium"} text-ink`}>{title}</h2>
-          {sub && (
-            <p className={`mt-0.5 ${exporting ? "text-sm" : "text-xs"} text-ink-3`}>
-              {/* interaction hints make no sense in a static image */}
-              {exporting ? sub.replace(/\s*Hover[^.]*\./g, "") : sub}
-            </p>
-          )}
+          <h2 className={`${portrait ? "text-[28px] leading-tight font-semibold" : exporting ? "text-2xl font-semibold" : "text-sm font-medium"} text-ink`}>{title}</h2>
+          {subText && <p className={`mt-1 ${exporting ? "text-[15px]" : "text-xs"} text-ink-3`}>{subText}</p>}
+          {portrait && period && <p className="mt-1 text-[13px] text-ink-3">{period} · UTC, daily data</p>}
         </div>
-        {exporting && period && (
+        {exporting && !portrait && period && (
           <div className="shrink-0 rounded-md bg-surface-0 px-3 py-1.5 text-right">
             <div className="text-base font-semibold text-ink">{period}</div>
             <div className="text-xs text-ink-3">UTC · daily data</div>
@@ -132,11 +144,22 @@ export function ShareCard({
           {exporting ? "…" : "↓ Image"}
         </button>
       </div>
-      <div className="mt-4">{children}</div>
+      <div className={portrait ? "mt-5" : "mt-4"}>
+        <ExportContext.Provider value={{ exporting, format }}>{children}</ExportContext.Provider>
+      </div>
       {exporting && (
-        <div className="mt-6 flex items-center justify-between border-t border-border pt-3 text-xs text-ink-3">
-          <span>boldanalytics.io/stories/tokenized-stocks</span>
-          <span>Data via Dune{period ? ` · ${period} (UTC)` : ""} · Not financial advice</span>
+        <div className={`mt-6 flex items-center justify-between border-t border-border pt-4 text-ink-3 ${portrait ? "text-[13px]" : "text-xs"}`}>
+          {portrait ? <Logo height={30} forceLight /> : <span />}
+          <div className="text-right leading-relaxed">
+            {portrait ? (
+              <>
+                <div>Data via Dune</div>
+                <div>Not financial advice</div>
+              </>
+            ) : (
+              footerNote
+            )}
+          </div>
         </div>
       )}
       {error && <p data-no-export className="mt-2 text-xs text-critical">{error}</p>}

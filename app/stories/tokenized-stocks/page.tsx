@@ -51,10 +51,10 @@ export default async function TokenizedStocks() {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <ShareCard slug="daily-dex-volume" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Daily DEX volume" sub={volumeSub}>
+            <ShareCard slug="daily-dex-volume" format="portrait" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Daily DEX volume" sub={volumeSub}>
               <BarChart unit="usd" label="Daily DEX volume in USD" markMax="record day" data={daily.map((d) => ({ x: d.day, y: d.volume_usd }))} />
             </ShareCard>
-            <ShareCard slug="daily-active-wallets" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Daily active wallets" sub="Wallets with at least one trade">
+            <ShareCard slug="daily-active-wallets" format="portrait" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Daily active wallets" sub="Wallets with at least one trade">
               <BarChart unit="count" label="Daily active wallets" data={daily.map((d) => ({ x: d.day, y: d.wallets }))} />
             </ShareCard>
           </div>

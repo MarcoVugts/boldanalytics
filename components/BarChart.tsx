@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { num, usd } from "@/lib/format";
+import { useExport } from "./ExportContext";
 
 type Point = { x: string; y: number };
 
-const HEIGHT = 220;
+const BASE_HEIGHT = 220;
 const M = { top: 12, right: 8, bottom: 24, left: 56 };
 
 function niceTicks(max: number, count = 4) {
@@ -32,6 +33,9 @@ export function BarChart({
   markMax?: string;
 }) {
   const format = unit === "usd" ? usd : num;
+  const exp = useExport();
+  // Portrait image export: a taller chart, like the phone layout.
+  const HEIGHT = exp.exporting && exp.format === "portrait" ? 560 : BASE_HEIGHT;
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(640);
   const [hover, setHover] = useState<number | null>(null);
