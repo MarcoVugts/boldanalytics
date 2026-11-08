@@ -24,6 +24,7 @@ export default async function TokenizedStocks() {
     getPressure(), getFlows(), getNetwork(), getSegments(), getCoTrading(),
   ]);
   const totalVol = tokens.reduce((s, t) => s + t.volume_usd, 0) || 1;
+  const volumeSub = milestoneSub(daily);
 
   return (
     <div className="space-y-6">
@@ -50,8 +51,8 @@ export default async function TokenizedStocks() {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <ShareCard slug="daily-dex-volume" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Daily DEX volume" sub="USD, all tokens">
-              <BarChart unit="usd" label="Daily DEX volume in USD" data={daily.map((d) => ({ x: d.day, y: d.volume_usd }))} />
+            <ShareCard slug="daily-dex-volume" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Daily DEX volume" sub={volumeSub}>
+              <BarChart unit="usd" label="Daily DEX volume in USD" markMax="record day" data={daily.map((d) => ({ x: d.day, y: d.volume_usd }))} />
             </ShareCard>
             <ShareCard slug="daily-active-wallets" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Daily active wallets" sub="Wallets with at least one trade">
               <BarChart unit="count" label="Daily active wallets" data={daily.map((d) => ({ x: d.day, y: d.wallets }))} />
@@ -203,3 +204,17 @@ const KIND: Record<string, string> = {
   bot: "bot",
   other: "other",
 };
+
+/** "USD, all tokens · Passed $5B total volume on 7 Nov": whole billions, first day the running total crossed it. */
+function milestoneSub(daily: { day: string; volume_usd: number }[]) {
+  const base = "USD, all tokens";
+  const total = daily.reduce((s, d) => s + d.volume_usd, 0);
+  const milestone = Math.floor(total / 1e9);
+  if (milestone < 1) return base;
+  let run = 0;
+  const day = daily.find((d) => (run += d.volume_usd) >= milestone * 1e9)?.day;
+  const when = day
+    ? ` on ${new Date(`${day}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" })}`
+    : "";
+  return `${base} · Passed $${milestone}B total volume${when}`;
+}

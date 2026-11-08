@@ -16,14 +16,20 @@ function niceTicks(max: number, count = 4) {
   return Array.from({ length: Math.ceil(max / step) + 1 }, (_, i) => i * step);
 }
 
+const fmtDay = (d: string) =>
+  new Date(`${d}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+
 export function BarChart({
   data,
   unit,
   label,
+  markMax,
 }: {
   data: Point[];
   unit: "usd" | "count";
   label: string;
+  /** Annotate the highest bar with its value and an arrow (e.g. "record day") */
+  markMax?: string;
 }) {
   const format = unit === "usd" ? usd : num;
   const ref = useRef<HTMLDivElement>(null);
@@ -42,20 +48,25 @@ export function BarChart({
     return <div className="flex h-[220px] items-center justify-center text-sm text-ink-3">No data yet</div>;
   }
 
-  const ticks = niceTicks(Math.max(...data.map((d) => d.y)));
+  const maxY = Math.max(...data.map((d) => d.y));
+  const ticks = niceTicks(maxY);
   const yMax = ticks[ticks.length - 1] || 1;
+  // Room above the plot for the annotation label.
+  const top0 = markMax ? 46 : M.top;
   const innerW = Math.max(10, width - M.left - M.right);
-  const innerH = HEIGHT - M.top - M.bottom;
+  const innerH = HEIGHT + (markMax ? top0 - M.top : 0) - top0 - M.bottom;
+  const H = HEIGHT + (markMax ? top0 - M.top : 0);
+  const maxI = data.findIndex((d) => d.y === maxY);
   const slot = innerW / data.length;
   const gap = slot > 6 ? 2 : 0;
   const barW = Math.max(1, slot - gap);
-  const y = (v: number) => M.top + innerH - (v / yMax) * innerH;
+  const y = (v: number) => top0 + innerH - (v / yMax) * innerH;
   const labelEvery = Math.max(1, Math.ceil(data.length / Math.max(2, Math.floor(innerW / 70))));
   const h = hover !== null ? data[hover] : null;
 
   return (
     <div ref={ref} className="relative w-full min-w-0 overflow-hidden" onMouseLeave={() => setHover(null)}>
-      <svg width={width} height={HEIGHT} role="img" aria-label={label} className="block">
+      <svg width={width} height={H} role="img" aria-label={label} className="block">
         {ticks.map((t) => (
           <g key={t}>
             <line x1={M.left} x2={width - M.right} y1={y(t)} y2={y(t)} stroke="var(--grid)" />
@@ -67,7 +78,7 @@ export function BarChart({
         {data.map((d, i) => {
           const x = M.left + i * slot + gap / 2;
           const top = y(d.y);
-          const hgt = Math.max(0, M.top + innerH - top);
+          const hgt = Math.max(0, top0 + innerH - top);
           const r = Math.min(4, barW / 2, hgt);
           return (
             <g key={d.x}>
@@ -76,16 +87,49 @@ export function BarChart({
                 fill={hover === i ? "var(--series-1-hover)" : "var(--series-1)"}
               />
               {/* hit target: full column height */}
-              <rect x={M.left + i * slot} y={M.top} width={slot} height={innerH} fill="transparent" onMouseEnter={() => setHover(i)} />
+              <rect x={M.left + i * slot} y={top0} width={slot} height={innerH} fill="transparent" onMouseEnter={() => setHover(i)} />
               {i % labelEvery === 0 && (
-                <text x={x + barW / 2} y={HEIGHT - 6} textAnchor="middle" fontSize={11} fill="var(--text-muted)">
+                <text x={x + barW / 2} y={H - 6} textAnchor="middle" fontSize={11} fill="var(--text-muted)">
                   {d.x.slice(5)}
                 </text>
               )}
             </g>
           );
         })}
-        <line x1={M.left} x2={width - M.right} y1={M.top + innerH} y2={M.top + innerH} stroke="var(--border)" />
+        <line x1={M.left} x2={width - M.right} y1={top0 + innerH} y2={top0 + innerH} stroke="var(--border)" />
+        {markMax && maxI >= 0 && (() => {
+          // Label up and to the left of the peak bar (to the right if the bar is near the left edge),
+          // with a curved arrow ending just above the bar.
+          const bx = M.left + maxI * slot + slot / 2;
+          const by = y(maxY) - 4;
+          const left = bx > M.left + 150;
+          const lx = left ? bx - 34 : bx + 34;
+          const ly = 16;
+          const anchor = left ? "end" : "start";
+          const sx = left ? lx + 4 : lx - 4;
+          return (
+            <g pointerEvents="none">
+              <defs>
+                <marker id="bc-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0,0 L8,4 L0,8 Z" fill="var(--text-primary)" />
+                </marker>
+              </defs>
+              <text x={lx} y={ly} textAnchor={anchor} fontSize={15} fontWeight={700} fill="var(--text-primary)">
+                {format(maxY)}
+              </text>
+              <text x={lx} y={ly + 15} textAnchor={anchor} fontSize={11} fill="var(--text-muted)">
+                {markMax} · {fmtDay(data[maxI].x)}
+              </text>
+              <path
+                d={`M${sx},${ly + 2} Q${bx},${ly + 2} ${bx},${by}`}
+                fill="none"
+                stroke="var(--text-primary)"
+                strokeWidth={1.4}
+                markerEnd="url(#bc-arrow)"
+              />
+            </g>
+          );
+        })()}
       </svg>
       {h && hover !== null && (
         <div
