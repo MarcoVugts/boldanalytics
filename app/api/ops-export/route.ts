@@ -35,6 +35,46 @@ export async function GET() {
         GROUP BY day ORDER BY day DESC LIMIT 100`,
     );
     out.push("", "## Rows per day (newest first)", typeof perDay === "string" ? perDay : perDay.map((r) => `${r.day} ${r.n_rows}`).join(", "));
+
+    // Behaviour per app / operator: is it market making, arbitrage or directional?
+    // Buy/sell are from the sender's side (stock in vs out) over all loaded days.
+    const behaviour = await safe(() =>
+      md<Record<string, unknown>>`
+        WITH t AS (
+          SELECT COALESCE(r.app, 'Unlabeled') AS app, COALESCE(r.app_kind, 'unknown') AS kind, COALESCE(r.app_confidence, '') AS conf,
+                 t.day, t.wallet, t.symbol, t.trades, t.swaps,
+                 COALESCE(t.buy_usd, 0) AS b, COALESCE(t.sell_usd, 0) AS s, COALESCE(t.cross_usd, 0) AS c
+          FROM trades_daily t LEFT JOIN routes_labeled r USING (route)
+        ),
+        per_day AS (SELECT app, day, SUM(b) AS b, SUM(s) AS s FROM t GROUP BY 1, 2),
+        per_sym AS (SELECT app, symbol, SUM(b) AS b, SUM(s) AS s FROM t GROUP BY 1, 2),
+        per_wallet AS (SELECT app, wallet, SUM(b + s) AS v FROM t GROUP BY 1, 2),
+        d AS (SELECT app, AVG(ABS(b - s) / NULLIF(b + s, 0)) AS daily_abs FROM per_day GROUP BY 1),
+        y AS (SELECT app, SUM(ABS(b - s)) / NULLIF(SUM(b + s), 0) AS sym_abs FROM per_sym GROUP BY 1),
+        w AS (SELECT app, MAX(v) / NULLIF(SUM(v), 0) AS top_sender FROM per_wallet GROUP BY 1)
+        SELECT t.app, ANY_VALUE(t.kind) AS kind, ANY_VALUE(t.conf) AS conf,
+               ROUND(SUM(t.b) / 1e6, 1) AS buy_m, ROUND(SUM(t.s) / 1e6, 1) AS sell_m,
+               ROUND(100 * (SUM(t.b) - SUM(t.s)) / NULLIF(SUM(t.b) + SUM(t.s), 0), 1) AS net_pct,
+               ROUND(100 * ANY_VALUE(d.daily_abs), 1) AS daily_abs_net_pct,
+               ROUND(100 * ANY_VALUE(y.sym_abs), 1) AS per_stock_abs_net_pct,
+               SUM(t.trades)::BIGINT AS txs,
+               ROUND(SUM(t.swaps) / NULLIF(SUM(t.trades), 0), 2) AS swaps_per_tx,
+               ROUND((SUM(t.b) + SUM(t.s)) / NULLIF(SUM(t.trades), 0)) AS avg_usd_per_tx,
+               COUNT(DISTINCT t.symbol) AS stocks, COUNT(DISTINCT t.wallet) AS senders,
+               ROUND(100 * ANY_VALUE(w.top_sender), 1) AS top_sender_pct,
+               COUNT(DISTINCT t.day) AS days,
+               ROUND(100 * SUM(t.c) / NULLIF(SUM(t.b) + SUM(t.s), 0), 1) AS stock_to_stock_pct
+        FROM t JOIN d USING (app) JOIN y USING (app) JOIN w USING (app)
+        GROUP BY t.app
+        ORDER BY SUM(t.b) + SUM(t.s) DESC
+        LIMIT 12`,
+    );
+    out.push(
+      "",
+      "## Behaviour per app / operator (top 12 by volume, all loaded days)",
+      "net_pct = (buy - sell) / volume over the whole period · daily_abs_net_pct = average one-sidedness per day · per_stock_abs_net_pct = one-sidedness per stock · swaps_per_tx > 1 = routed over several pools",
+      typeof behaviour === "string" ? behaviour : table(behaviour),
+    );
   }
 
   if (hasDb()) {
