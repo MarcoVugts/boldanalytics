@@ -1,0 +1,107 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face{font-family:Montserrat;font-weight:800;src:url("../../node_modules/@fontsource/montserrat/files/montserrat-latin-800-normal.woff2")}
+@font-face{font-family:Geist;font-weight:400;src:url("../../node_modules/geist/dist/fonts/geist-sans/Geist-Regular.woff2")}
+@font-face{font-family:Geist;font-weight:600;src:url("../../node_modules/geist/dist/fonts/geist-sans/Geist-SemiBold.woff2")}
+*{box-sizing:border-box}
+body{margin:0;background:#f8f0e8;font-family:Geist,sans-serif;color:#1e2a32}
+.card{width:1080px;height:1080px;padding:64px 64px 40px;display:flex;flex-direction:column}
+h1{font:800 46px/1.12 Montserrat;margin:0;letter-spacing:-.01em}
+h1 span{display:block;color:#4b565d}
+.sub{font-size:21px;color:#79807f;margin-top:12px;line-height:1.35}
+.foot{margin-top:auto;border-top:1px solid #e8dfd2;padding-top:20px;display:flex;justify-content:space-between;align-items:center;font-size:17px;color:#79807f}
+.foot img{height:40px}
+svg text{font-family:Geist,sans-serif}
+</style>
+<script src="charts-data.js"></script>
+</head><body><div id="root"></div>
+<script>
+const D = window.D2;
+const usd = (v) => { const a = Math.abs(v); const s = v < 0 ? "−" : ""; return a >= 1e6 ? `${s}$${(a / 1e6).toFixed(a >= 1e7 ? 0 : 1)}M` : a >= 1e3 ? `${s}$${Math.round(a / 1e3)}K` : `${s}$${Math.round(a)}`; };
+const LOGO = "../../public/brand/logo-horizontal.svg";
+const card = (t1, t2, sub, inner) => `<div class="card"><h1>${t1}<span>${t2}</span></h1><div class="sub">${sub}</div>${inner}
+  <div class="foot"><img src="${LOGO}"><div style="text-align:right">Data via Dune · 6 Nov 2026 (UTC)<br>Not financial advice</div></div></div>`;
+const v = new URLSearchParams(location.search).get("v") || "1";
+const root = document.getElementById("root");
+const OPS = [["wm", "Wintermute (attributed)"], ["mma", "Unknown market maker A"], ["mmb", "Unknown market maker B"], ["ret", "Apps & retail"]];
+
+// ---------- 1. around the clock: heatmap 24h x operator ----------
+if (v === "1") {
+  const W = 952, rowH = 112, top = 80, left = 250, cw = (W - left - 20) / 24;
+  const ramp = ["#efe7dc", "#d6e1ee", "#b0c7e2", "#8aabd0", "#6690c1", "#4678ae", "#345d8c", "#22426a"];
+  const total = OPS.reduce((s, [k]) => s + D.hourly[k].reduce((a, b) => a + b, 0), 0);
+  let svg = `<svg width="${W}" height="${top + rowH * 4 + 96}" style="margin-top:24px">`;
+  svg += `<rect x="${left + 14.5 * cw}" y="${top - 30}" width="${6.5 * cw}" height="${rowH * 4 + 34}" fill="none" stroke="#1e2a32" stroke-width="2" stroke-dasharray="6 6" rx="6"/>`;
+  svg += `<text x="${left + 17.75 * cw}" y="${top - 40}" text-anchor="middle" font-size="17" font-weight="600" fill="#1e2a32">NYSE open 14:30–21:00 UTC</text>`;
+  OPS.forEach(([k, name], r) => {
+    const row = D.hourly[k], max = Math.max(...row), sum = row.reduce((a, b) => a + b, 0);
+    svg += `<text x="0" y="${top + r * rowH + rowH / 2 - 6}" font-size="19" font-weight="600" fill="#1e2a32">${name.replace(" (attributed)", "")}</text>`;
+    svg += `<text x="0" y="${top + r * rowH + rowH / 2 + 18}" font-size="16" fill="#79807f">${usd(sum)} · ${Math.round((sum / total) * 100)}%</text>`;
+    row.forEach((val, h) => {
+      const i = Math.min(ramp.length - 1, Math.round((val / max) * (ramp.length - 1)));
+      svg += `<rect x="${left + h * cw + 2}" y="${top + r * rowH + 4}" width="${cw - 4}" height="${rowH - 8}" rx="5" fill="${ramp[i]}"><title>${usd(val)}</title></rect>`;
+    });
+  });
+  for (let h = 0; h <= 24; h += 3) svg += `<text x="${left + h * cw}" y="${top + rowH * 4 + 30}" text-anchor="${h === 24 ? "end" : h === 0 ? "start" : "middle"}" font-size="16" fill="#79807f">${String(h).padStart(2, "0")}:00</text>`;
+  svg += `<text x="${left}" y="${top + rowH * 4 + 68}" font-size="16" fill="#79807f">Colour = volume relative to each row's busiest hour · darker = busier</text></svg>`;
+  root.innerHTML = card("Tokenized stocks on Base", "Trading never sleeps", "DEX volume per hour on the record day. 1 in 3 dollars changed hands before 09:00 UTC; every operator peaks at the NYSE open.", svg);
+}
+
+// ---------- 2. how a market maker trades: buys/sells + running position ----------
+if (v === "2") {
+  const W = 952, H = 620, x0 = 70, n = 288, bw = (W - x0) / n;
+  const bs = D.b5.mma, maxBar = Math.max(...bs.flat());
+  const midY = 180, barH = 140, posY = 565, posH = 140;
+  const posMax = Math.max(...D.pos.ret.map(Math.abs), ...D.pos.mma.map(Math.abs));
+  const py = (p) => posY - (p / posMax) * posH;
+  let svg = `<svg width="${W}" height="${H}" style="margin-top:28px">`;
+  svg += `<text x="0" y="14" font-size="17" font-weight="600" fill="#1e2a32">Unknown market maker A · SNDK · bought ↑ and sold ↓ per 5 minutes</text>`;
+  bs.forEach(([b, s], i) => {
+    const hb = (b / maxBar) * barH, hs = (s / maxBar) * barH;
+    svg += `<rect x="${x0 + i * bw}" y="${midY - hb}" width="${Math.max(1, bw - 0.6)}" height="${hb}" fill="#4678ae"/>`;
+    svg += `<rect x="${x0 + i * bw}" y="${midY}" width="${Math.max(1, bw - 0.6)}" height="${hs}" fill="#e34948"/>`;
+  });
+  svg += `<line x1="${x0}" x2="${W}" y1="${midY}" y2="${midY}" stroke="#1e2a32"/>`;
+  svg += `<text x="${x0 - 8}" y="${midY - barH + 4}" text-anchor="end" font-size="14" fill="#79807f">${usd(maxBar)}</text><text x="${x0 - 8}" y="${midY + barH}" text-anchor="end" font-size="14" fill="#79807f">${usd(maxBar)}</text>`;
+  svg += `<text x="0" y="${posY - posH - 30}" font-size="17" font-weight="600" fill="#1e2a32">Net position in SNDK through the day (bought − sold, same scale)</text>`;
+  svg += `<line x1="${x0}" x2="${W}" y1="${posY}" y2="${posY}" stroke="#d8cfc2" stroke-dasharray="4 4"/>`;
+  const path = (arr) => arr.map((p, i) => `${i ? "L" : "M"}${x0 + i * bw + bw / 2},${py(p)}`).join("");
+  svg += `<path d="${path(D.pos.ret)}" fill="none" stroke="#eb6834" stroke-width="3"/><path d="${path(D.pos.mma)}" fill="none" stroke="#22426a" stroke-width="3.5"/>`;
+  const re = D.pos.ret[n - 1], me = D.pos.mma[n - 1];
+  const maxAbsM = Math.max(...D.pos.mma.map(Math.abs));
+  svg += `<text x="${W}" y="${py(re) - 12}" text-anchor="end" font-size="16" font-weight="600" fill="#eb6834">All apps & retail: ${usd(re)}</text>`;
+  svg += `<text x="${W}" y="${posY + 28}" text-anchor="end" font-size="16" font-weight="600" fill="#22426a">Market maker A: never more than ${usd(maxAbsM)}</text>`;
+  svg += `<text x="${x0 - 8}" y="${py(posMax) + 5}" text-anchor="end" font-size="14" fill="#79807f">${usd(posMax)}</text><text x="${x0 - 8}" y="${posY + 5}" text-anchor="end" font-size="14" fill="#79807f">0</text>`;
+  [0, 6, 12, 14.5, 18, 24].forEach((h) => svg += `<text x="${x0 + (h * 12) * bw}" y="${H - 4}" text-anchor="${h === 24 ? "end" : h === 0 ? "start" : "middle"}" font-size="15" fill="#79807f">${h === 14.5 ? "14:30 NYSE" : String(h).padStart(2, "0") + ":00"}</text>`);
+  svg += `</svg>`;
+  const tot = D.b5.mma.reduce((s, [b, x]) => s + b + x, 0);
+  root.innerHTML = card("Tokenized stocks on Base", "How a market maker trades", `Market maker A traded ${usd(tot)} of SNDK on the record day, buying and selling in equal amounts, and never held more than ${usd(maxAbsM)}.`, svg);
+}
+
+// ---------- 3. race: which stock wins the day (frame-driven for video) ----------
+if (v === "3") {
+  const syms = D.race.syms, cum = D.race.cum, steps = 288;
+  root.innerHTML = card("Tokenized stocks on Base", "Which stock wins the day?", "Cumulative DEX volume per stock on the record day (top 8)",
+    `<div style="position:relative;margin-top:30px;height:640px" id="race"><div id="clock" style="position:absolute;right:0;bottom:6px;text-align:right"><div style="font:800 84px Montserrat;color:#d8cfc2" class="t">00:00</div><div class="v" style="font:600 22px Geist;color:#79807f">$0M traded</div></div></div>`);
+  const race = document.getElementById("race");
+  const rows = syms.map((s) => { const el = document.createElement("div");
+    el.style.cssText = "position:absolute;left:0;height:64px;width:100%";
+    el.innerHTML = `<div style="display:flex;align-items:center;gap:14px"><div style="width:76px;font:600 22px Geist">${s}</div><div class="bar" style="height:46px;border-radius:5px;background:#4678ae;width:2px"></div><span class="val" style="font:600 20px Geist"></span></div>`;
+    race.appendChild(el); return { el, bar: el.querySelector(".bar"), val: el.querySelector(".val") }; });
+  const finalMax = Math.max(...syms.map((s) => cum[s][steps - 1]));
+  const pos = syms.map((_, i) => i * 72);
+  window.frame = (f) => { // f in 0..1
+    const x = Math.min(steps - 1, f * (steps - 1)), i0 = Math.floor(x), fr = x - i0;
+    const vals = syms.map((s) => cum[s][i0] + (cum[s][Math.min(steps - 1, i0 + 1)] - cum[s][i0]) * fr);
+    const order = vals.map((v, i) => [v, i]).sort((a, b) => b[0] - a[0]).map((p) => p[1]);
+    const curMax = Math.max(finalMax * 0.15, ...vals);
+    rows.forEach((r, i) => { const target = order.indexOf(i) * 72; pos[i] += (target - pos[i]) * 0.18; r.el.style.top = `${pos[i]}px`;
+      r.bar.style.width = `${Math.max(2, (vals[i] / curMax) * 700)}px`; r.bar.style.background = order.indexOf(i) === 0 ? "#22426a" : "#4678ae"; r.val.textContent = usd(vals[i]); });
+    const mins = Math.round(f * 1440);
+    document.querySelector("#clock .t").textContent = f >= 1 ? "24:00" : `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
+    document.querySelector("#clock .v").textContent = `${usd(D.total * 0 + syms.reduce((s, k, j) => s + vals[j], 0))} in these 8`;
+  };
+  window.frame(0);
+}
+</script></body></html>
