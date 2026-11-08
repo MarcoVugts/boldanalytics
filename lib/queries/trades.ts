@@ -90,7 +90,10 @@ export async function getByEntryContract(limit = 12): Promise<GroupRow[]> {
   cacheTag("trades");
   if (!hasMd()) return [];
   return plain(await md<GroupRow>`
-    SELECT COALESCE(r.app || CASE WHEN r.app_confidence = 'suspected' AND r.app <> 'Unlabeled bot' THEN ' (suspected)' ELSE '' END, 'Unlabeled') AS key,
+    SELECT COALESCE(r.app || CASE
+                 WHEN r.app_confidence = 'attributed' THEN ' (attributed)'
+                 WHEN r.app_confidence = 'suspected' AND r.app NOT LIKE 'Unknown%' AND r.app NOT LIKE 'Unlabeled%' THEN ' (suspected)'
+                 ELSE '' END, 'Unlabeled') AS key,
            MAX(COALESCE(r.app_kind, 'unknown'))   AS kind,
            SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0) - COALESCE(cross_usd,0))::float8 AS volume_usd,
            SUM(swaps)::float8               AS swaps,

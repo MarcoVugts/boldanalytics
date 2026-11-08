@@ -66,7 +66,10 @@ export async function getFlows(opts = { entries: 8, dexes: 6, tokens: 10 }): Pro
       ),
       base AS (
         SELECT CASE WHEN w.t >= ${HF_TRADES_PER_DAY} THEN 'High-frequency' ELSE 'Regular' END AS segment,
-               COALESCE(r.app || CASE WHEN r.app_confidence = 'suspected' AND r.app <> 'Unlabeled bot' THEN ' (suspected)' ELSE '' END, 'Unlabeled') AS entry,
+               COALESCE(r.app || CASE
+                 WHEN r.app_confidence = 'attributed' THEN ' (attributed)'
+                 WHEN r.app_confidence = 'suspected' AND r.app NOT LIKE 'Unknown%' AND r.app NOT LIKE 'Unlabeled%' THEN ' (suspected)'
+                 ELSE '' END, 'Unlabeled') AS entry,
                COALESCE(r.dex, 'Unknown') AS dex,
                t.symbol,
                COALESCE(t.buy_usd, 0) + COALESCE(t.sell_usd, 0) AS v

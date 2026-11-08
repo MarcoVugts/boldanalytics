@@ -1,4 +1,4 @@
-// Build sql/seed/app_labels.sql from the tx_to label check(s) in data/labels/*.csv
+// Build sql/md/seed/app_labels.sql from the tx_to label check(s) in data/labels/*.csv
 // plus the manual overrides below. Re-run after adding a new label CSV:
 //   node scripts/build-app-labels.mjs
 // The seed is applied on every build (scripts/migrate.mjs), so edits here ship with a deploy.
@@ -7,15 +7,17 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 // Manual labels win over everything. confidence: confirmed | attributed | suspected
 const MANUAL = {
   "0x83d55acdc72027ed339d267eebaf9a41e47490d5": { label: "Wintermute", kind: "market_maker", confidence: "attributed",
-    note: "I2604Ctrl; owner Safe 0x8ad1 also owns vault 0x51c7, which Arkham attributes to Wintermute" },
+    note: "I2604Ctrl; owner Safe 0x8ad1 also owns vault 0x51c7 (Arkham, Etherscan tag/Dune list, OLI: Wintermute); deployer funded via the Safe's creator" },
   "0x51c72848c68a965f66fa7a88855f9f7784502a7f": { label: "Wintermute", kind: "market_maker", confidence: "attributed",
     note: "Arkham: Wintermute; public posts list it as Wintermute EVM address" },
   // I2451* were "suspected Wintermute" by naming only. On-chain checks (2026-11-07) point away:
   // different owners, no shared multisig signers, different compiler/proxy patterns.
-  "0x278d858f05b94576c1e6f73285886876ff6ef8d2": { label: "Unknown market maker A", kind: "market_maker", confidence: "confirmed",
-    note: "I2451B; proxy owned by Safe 0xe2963654 (2-of-4), no signer overlap with Wintermute Safe 0x8ad1" },
-  "0x08fb33543ad633db94282df364ad80feb8d9fc35": { label: "Unknown market maker B", kind: "market_maker", confidence: "confirmed",
-    note: "I2451D; admin is EOA 0x00ff842be7e390605e7e3664ebfa0e432806500d" },
+  // Identity unknown; "market maker" from behaviour (2026-11-08, 84 days): inventory-neutral per stock and per day,
+  // one swap per tx, bot fleet of own senders. Same pattern as Wintermute. See data/labels/operator-I2xxx.md.
+  "0x278d858f05b94576c1e6f73285886876ff6ef8d2": { label: "Unknown market maker A", kind: "market_maker", confidence: "suspected",
+    note: "I2451B; proxy owned by Safe 0xe2963654 (2-of-4), no signer overlap with Wintermute Safe 0x8ad1; net 0.0% per stock over 84 days" },
+  "0x08fb33543ad633db94282df364ad80feb8d9fc35": { label: "Unknown market maker B", kind: "market_maker", confidence: "suspected",
+    note: "I2451D; admin is EOA 0x00ff842be7e390605e7e3664ebfa0e432806500d; net 0.3% per stock, active since mid-Oct" },
   "0x61040e143a77f165ba44543af4a079f2c809d14b": { label: "Unlabeled bot", kind: "bot", confidence: "suspected",
     note: "I2451bt; EIP-1967 proxy -> 0x8077dc1b, admin slot empty" },
 };

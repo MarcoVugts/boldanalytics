@@ -146,8 +146,10 @@ export default async function TokenizedStocks() {
           </details>
 
           <p className="text-xs text-ink-3">
-            App labels: Wintermute is attributed via a shared multisig with a wallet Arkham labels as Wintermute; &ldquo;(suspected)&rdquo; marks weaker attributions.
-            &ldquo;Unknown market maker&rdquo; = professional trading contracts whose owner we could not identify.
+            App labels: &ldquo;(attributed)&rdquo; = identity from third-party labels, not confirmed by the firm. Wintermute: the trading contract shares a multisig
+            with a vault that Arkham, Etherscan and the Open Labels Initiative label as Wintermute. &ldquo;(suspected)&rdquo; marks weaker attributions.
+            &ldquo;Unknown market maker&rdquo; = trading contracts whose owner we could not identify, labelled by behaviour: they buy and sell almost exactly the same amount
+            of each stock (inventory-neutral), like a market maker.
             Other names come from Dune contract metadata. Unlabeled bot = unknown contract with few senders and many trades.
           </p>
           <p className="text-xs text-ink-3">
