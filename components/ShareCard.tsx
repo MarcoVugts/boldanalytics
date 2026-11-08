@@ -36,6 +36,7 @@ export function ShareCard({
   asOf,
   from,
   format = "wide",
+  exportSub,
   children,
 }: {
   title: string;
@@ -47,6 +48,8 @@ export function ShareCard({
   from?: string;
   /** image shape: wide (charts that need width) or portrait (4:5, logo at the bottom) */
   format?: "wide" | "portrait";
+  /** shorter subtitle for the portrait image (default: sub) */
+  exportSub?: string;
   children: React.ReactNode;
 }) {
   const frame = useRef<HTMLDivElement>(null);
@@ -101,7 +104,7 @@ export function ShareCard({
   }
 
   const portrait = exporting && format === "portrait";
-  const subText = sub && exporting ? sub.replace(/\s*Hover[^.]*\./g, "") : sub; // no hover hints in an image
+  const subText = portrait && exportSub !== undefined ? exportSub : sub && exporting ? sub.replace(/\s*Hover[^.]*\./g, "") : sub; // no hover hints in an image
   const footerNote = (
     <>
       <div>Data via Dune{period ? ` · ${period} (UTC)` : ""}</div>
@@ -121,12 +124,11 @@ export function ShareCard({
           <span className="text-ink-3">Tokenized Stocks on Base</span>
         </div>
       )}
-      {portrait && <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-ink-3">Tokenized Stocks on Base</div>}
+      {portrait && <div className="mb-2 text-[17px] font-semibold uppercase tracking-[0.12em] text-ink-3">Tokenized Stocks on Base</div>}
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className={`${portrait ? "text-[28px] leading-tight font-semibold" : exporting ? "text-2xl font-semibold" : "text-sm font-medium"} text-ink`}>{title}</h2>
           {subText && <p className={`mt-1 ${exporting ? "text-[15px]" : "text-xs"} text-ink-3`}>{subText}</p>}
-          {portrait && period && <p className="mt-1 text-[13px] text-ink-3">{period} · UTC, daily data</p>}
         </div>
         {exporting && !portrait && period && (
           <div className="shrink-0 rounded-md bg-surface-0 px-3 py-1.5 text-right">
@@ -153,7 +155,7 @@ export function ShareCard({
           <div className="text-right leading-relaxed">
             {portrait ? (
               <>
-                <div>Data via Dune</div>
+                <div>Data via Dune{period ? ` · ${period} (UTC)` : ""}</div>
                 <div>Not financial advice</div>
               </>
             ) : (
