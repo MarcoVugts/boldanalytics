@@ -35,7 +35,7 @@ export function BarChart({
   const format = unit === "usd" ? usd : num;
   const exp = useExport();
   // Portrait image export: a taller chart, like the phone layout.
-  const HEIGHT = exp.exporting && exp.format === "portrait" ? 560 : BASE_HEIGHT;
+  const HEIGHT = exp.exporting && exp.format === "portrait" ? 410 : BASE_HEIGHT;
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(640);
   const [hover, setHover] = useState<number | null>(null);
@@ -53,8 +53,10 @@ export function BarChart({
   }
 
   const maxY = Math.max(...data.map((d) => d.y));
-  const ticks = niceTicks(maxY);
-  const yMax = ticks[ticks.length - 1] || 1;
+  // Axis ends just above the highest bar (not at the next round tick), so the bars fill the
+  // plot; gridlines stay on round values below it.
+  const yMax = maxY > 0 ? maxY * 1.06 : 1;
+  const ticks = niceTicks(maxY).filter((t) => t <= yMax);
   // Room above the plot for the annotation label.
   const top0 = markMax ? 46 : M.top;
   const innerW = Math.max(10, width - M.left - M.right);
