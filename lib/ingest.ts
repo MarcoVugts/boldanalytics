@@ -268,10 +268,33 @@ async function oldestLoadedDay(): Promise<string | null> {
   return r?.d ?? null;
 }
 
+/** Lease lock in Neon (works with pooled connections, unlike session advisory locks). */
+async function withLock<T>(name: string, ms: number, fn: () => Promise<T>): Promise<T | null> {
+  const sql = db();
+  const got = await sql`
+    INSERT INTO job_locks (name, locked_until) VALUES (${name}, now() + ${`${Math.ceil(ms / 1000)} seconds`}::interval)
+    ON CONFLICT (name) DO UPDATE SET locked_until = EXCLUDED.locked_until WHERE job_locks.locked_until < now()
+    RETURNING name`;
+  if (!got.length) return null;
+  try {
+    return await fn();
+  } finally {
+    await sql`UPDATE job_locks SET locked_until = now() WHERE name = ${name}`;
+  }
+}
+
+/** True when another call should continue the backfill (not done, nothing paused or failed). */
+export const backfillShouldContinue = (s?: BackfillStatus) => !!s && !s.done && !s.message;
+
 export async function runBackfill(
   deadline: number,
   trigger?: string,
 ): Promise<{ results: IngestResult[]; status: BackfillStatus }> {
+  const r = await withLock("backfill", deadline - Date.now() + 30_000, () => backfillLoop(deadline, trigger));
+  return r ?? { results: [], status: { done: false, oldestDay: null, message: "Another backfill run is in progress." } };
+}
+
+async function backfillLoop(deadline: number, trigger?: string): Promise<{ results: IngestResult[]; status: BackfillStatus }> {
   const sql = db();
   const results: IngestResult[] = [];
   const status = async (message?: string): Promise<BackfillStatus> => {
