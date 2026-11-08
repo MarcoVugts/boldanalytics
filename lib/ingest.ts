@@ -120,10 +120,14 @@ const addDays = (day: string, n: number) => {
 const minDay = (a: string, b: string) => (a < b ? a : b);
 
 /** Next window to load for a dataset, based on its completed runs. */
-export async function nextWindow(dataset: string, override?: { start?: string; end?: string }): Promise<Window> {
+export async function nextWindow(
+  dataset: string,
+  override?: { start?: string; end?: string; maxDays?: number },
+): Promise<Window> {
   const end = override?.end ?? iso(new Date());
   // Manual window (history): same chunk size; call again with start = returned endDate.
-  if (override?.start) return { start: override.start, end: minDay(end, addDays(override.start, MAX_DAYS_PER_RUN)) };
+  if (override?.start)
+    return { start: override.start, end: minDay(end, addDays(override.start, override.maxDays ?? MAX_DAYS_PER_RUN)) };
 
   const [last] = await db()<{ end_date: string | null }[]>`
     SELECT to_char(MAX(end_date), 'YYYY-MM-DD') AS end_date
@@ -149,6 +153,8 @@ export async function runIngest(
     trigger?: string;
     /** bill this run to a client (overrides the dataset's client) */
     client?: string;
+    /** manual windows: max days per run (default INGEST_MAX_DAYS_PER_RUN) */
+    maxDays?: number;
   },
 ): Promise<IngestResult> {
   const ds = DATASETS[datasetName];
@@ -173,7 +179,7 @@ export async function runIngest(
     executionId = pending.execution_id;
     window = { start: pending.start_date, end: pending.end_date };
   } else {
-    window = await nextWindow(ds.name, { start: opts.start, end: opts.end });
+    window = await nextWindow(ds.name, { start: opts.start, end: opts.end, maxDays: opts.maxDays });
     if (window.start >= window.end && !opts.force) {
       return { ...base, action: "skipped", ...dates(window), message: "Already up to date; Dune not called." };
     }
@@ -242,6 +248,82 @@ export async function runIngest(
     exportCreditsEst: exportEst,
     periodCreditsUsed: usage?.used ?? null,
   };
+}
+
+/* ---------- History backfill ----------
+ * Runs inside the daily job with whatever time is left: loads older days in chunks, newest
+ * first, from the oldest loaded day back to BACKFILL_FROM. Click "Run" on the Vercel cron to
+ * go faster; otherwise it continues every night until done.
+ */
+export const BACKFILL_FROM = "2026-08-16"; // first real trading day of tokenized stocks on Base
+const BACKFILL_DAYS = 5;
+const BACKFILL_MAX_EXPORT = 200; // credits per chunk (~60–150 expected)
+const BACKFILL_STOP_AT_PERIOD_CREDITS = 3500; // of the 4,000 included in the Dune plan
+const BACKFILL_MIN_TIME_MS = 140_000; // only start a chunk with this much function time left
+
+export type BackfillStatus = { done: boolean; oldestDay: string | null; message?: string };
+
+async function oldestLoadedDay(): Promise<string | null> {
+  const [r] = await md<{ d: string | null }>`SELECT strftime(MIN(day), '%Y-%m-%d') AS d FROM trades_daily`;
+  return r?.d ?? null;
+}
+
+export async function runBackfill(
+  deadline: number,
+  trigger?: string,
+): Promise<{ results: IngestResult[]; status: BackfillStatus }> {
+  const sql = db();
+  const results: IngestResult[] = [];
+  const status = async (message?: string): Promise<BackfillStatus> => {
+    const oldest = await oldestLoadedDay();
+    return { done: !!oldest && oldest <= BACKFILL_FROM, oldestDay: oldest, message };
+  };
+
+  // Routes for the whole history once (small export): backfilled trades need their route labels.
+  const [routesDone] = await sql<{ ok: boolean }[]>`
+    SELECT EXISTS (SELECT 1 FROM dune_runs WHERE dataset = 'routes' AND state = 'completed' AND start_date <= ${BACKFILL_FROM}) AS ok`;
+  const oldest0 = await oldestLoadedDay();
+  if (!oldest0) return { results, status: await status("No data loaded yet; the backfill starts after the first daily load.") };
+  if (!routesDone.ok && oldest0 > BACKFILL_FROM && deadline - Date.now() > BACKFILL_MIN_TIME_MS) {
+    const r = await runIngest("routes", {
+      budgetMs: deadline - Date.now() - 20_000,
+      start: BACKFILL_FROM,
+      end: oldest0,
+      maxDays: 400,
+      maxExportCredits: 60,
+      trigger,
+    });
+    results.push(r);
+    if (r.action !== "completed") return { results, status: await status(`Routes history: ${r.action}`) };
+  }
+
+  while (deadline - Date.now() > BACKFILL_MIN_TIME_MS) {
+    // A pending execution is resumed by the normal trades step; don't pay for a new one meanwhile.
+    const [pending] = await sql`SELECT 1 FROM dune_runs WHERE dataset = 'trades' AND state = 'pending' LIMIT 1`;
+    if (pending) return { results, status: await status("A trades run is still pending; it is resumed on the next run.") };
+
+    const [usage] = await sql<{ used: number | null }[]>`
+      SELECT period_credits_used::float8 AS used FROM dune_runs WHERE period_credits_used IS NOT NULL ORDER BY id DESC LIMIT 1`;
+    if ((usage?.used ?? 0) >= BACKFILL_STOP_AT_PERIOD_CREDITS)
+      return { results, status: await status(`Paused: Dune billing period at ${usage?.used} credits (cap ${BACKFILL_STOP_AT_PERIOD_CREDITS}).`) };
+
+    const oldest = await oldestLoadedDay();
+    if (!oldest || oldest <= BACKFILL_FROM) break;
+    const start = addDays(oldest, -BACKFILL_DAYS) < BACKFILL_FROM ? BACKFILL_FROM : addDays(oldest, -BACKFILL_DAYS);
+    const r = await runIngest("trades", {
+      budgetMs: deadline - Date.now() - 20_000,
+      start,
+      end: oldest,
+      maxDays: BACKFILL_DAYS,
+      maxExportCredits: BACKFILL_MAX_EXPORT,
+      trigger,
+    });
+    results.push(r);
+    if (r.action !== "completed") return { results, status: await status(`Stopped: ${r.message ?? r.action}`) };
+    // Nothing loaded: the oldest day would not move and we'd repeat this window. Stop instead.
+    if (!r.rowsUpserted) return { results, status: await status(`Stopped: no rows for ${start} → ${oldest}.`) };
+  }
+  return { results, status: await status() };
 }
 
 /** Token list straight from Coinbase (free, no Dune credits). */

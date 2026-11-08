@@ -28,7 +28,7 @@ Kept lean because Dune export costs 10 credits/MB on Analyst. Measured for 2026-
 - Window is `[start, end)` with `end = today 00:00 UTC` → only complete days.
 - `start = last completed run's end` (`INGEST_OVERLAP_DAYS=0`) → each daily run exports exactly one new day. An overlap day costs a full extra day of export. The days in the window are replaced in one transaction (delete + insert).
 - Already up to date → Dune is **not** called (no credits).
-- The very first run loads only yesterday. History is loaded deliberately: `/api/cron/daily?start=2026-10-01&maxExport=250` (max `INGEST_MAX_DAYS_PER_RUN` days per call; call again with `start` = the returned `endDate`).
+- The very first run loads only yesterday. **History backfill** runs automatically inside the daily job with the function time left: 5-day chunks, newest first, from the oldest loaded day back to `BACKFILL_FROM` (2026-08-16, in `lib/ingest.ts`). First it loads routes for the whole history once. Guards: ≤200 export credits per chunk, a chunk only starts with ≥140 s left, pauses when the Dune billing period passes 3,500 credits, stops if a chunk returns no rows. Speed it up with *Run* on the Vercel cron, or `/api/cron/backfill`. Done when the response says `backfill.done: true`.
 - If a Dune execution takes longer than the function budget, it's stored as `pending` and the next call resumes it instead of paying for a new execution.
 
 Every execution is logged in `dune_runs`. See `/ops`.

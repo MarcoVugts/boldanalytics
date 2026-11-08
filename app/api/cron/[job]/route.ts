@@ -1,11 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { revalidateTag } from "next/cache";
-import { runIngest, syncTokens, type IngestResult } from "@/lib/ingest";
+import { runBackfill, runIngest, syncTokens, type BackfillStatus, type IngestResult } from "@/lib/ingest";
 
 // Hobby allows up to 300s; unfinished Dune executions are stored and resumed next call.
 export const maxDuration = 300;
 
-// GET /api/cron/daily                        — tokens + trades + routes (Vercel cron)
+// GET /api/cron/daily                        — tokens + trades + routes, then history backfill with the time left
+// GET /api/cron/backfill                     — only the history backfill
 // GET /api/cron/trades | routes | tokens     — one job
 // GET /api/cron/trades?start=2026-11-01&end=2026-11-02   — manual window
 //     &maxExport=200                         — raise the export-credit guard for this call
@@ -37,6 +38,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ job: string
 
   const jobs: Record<string, string[]> = {
     daily: ["tokens", "trades", "routes"],
+    backfill: [],
     tokens: ["tokens"],
     trades: ["trades"],
     routes: ["routes"],
@@ -53,11 +55,24 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ job: string
     }
   }
 
+  // History backfill uses whatever function time is left (daily and backfill jobs only).
+  let backfill: BackfillStatus | undefined;
+  if (job === "daily" || job === "backfill") {
+    try {
+      const b = await runBackfill(deadline, trigger);
+      results.push(...b.results.map((r) => ({ ...r, dataset: `${r.dataset} (backfill)` })));
+      backfill = b.status;
+    } catch (err) {
+      console.error("backfill", err);
+      backfill = { done: false, oldestDay: null, message: String(err) };
+    }
+  }
+
   if (results.some((r) => r.action === "completed")) revalidateTag("trades", "max");
   revalidateTag("runs", "max");
   // The token list is a nice-to-have; only the Dune loaders decide success, so a
   // Coinbase hiccup doesn't mark the whole cron run as failed.
   const ok = results.every((r) => r.action !== "error" || r.dataset === "tokens");
-  console.log(JSON.stringify({ job, trigger, results }));
-  return NextResponse.json({ job, trigger, results }, { status: ok ? 200 : 500 });
+  console.log(JSON.stringify({ job, trigger, results, backfill }));
+  return NextResponse.json({ job, trigger, results, backfill }, { status: ok ? 200 : 500 });
 }
