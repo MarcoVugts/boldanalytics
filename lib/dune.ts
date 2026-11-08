@@ -84,14 +84,17 @@ export async function waitForExecution(executionId: string, budgetMs: number, in
 }
 
 /** Stream all result rows page by page. */
-export async function* resultPages<Row = Record<string, unknown>>(executionId: string, pageSize = 10_000) {
-  let offset: number | undefined = 0;
+/** Pages of results from `startOffset`. Export is billed per MB pulled, so a resumed load
+ *  only pays for the pages it has not pulled before. */
+export async function* resultPages<Row = Record<string, unknown>>(executionId: string, pageSize = 10_000, startOffset = 0) {
+  let offset: number | undefined = startOffset;
   while (offset !== undefined) {
     const r: {
       result?: { rows: Row[] };
       next_offset?: number;
     } = await dune(`/execution/${executionId}/results?limit=${pageSize}&offset=${offset}`);
-    yield r.result?.rows ?? [];
+    const rows = r.result?.rows ?? [];
+    yield { rows, offset, nextOffset: r.next_offset ?? undefined };
     offset = r.next_offset ?? undefined;
   }
 }

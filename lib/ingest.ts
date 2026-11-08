@@ -164,8 +164,12 @@ export async function runIngest(
   const client = opts.client ?? ds.client ?? "internal";
 
   // 1) Resume a pending execution first, rather than paying for a new one.
-  const [pending] = await sql<{ id: number; execution_id: string; start_date: string; end_date: string }[]>`
-    SELECT id, execution_id, to_char(start_date,'YYYY-MM-DD') AS start_date, to_char(end_date,'YYYY-MM-DD') AS end_date
+  const until = Date.now() + opts.budgetMs;
+  const [pending] = await sql<
+    { id: number; execution_id: string; start_date: string; end_date: string; load_offset: number | null; rows_upserted: number | null }[]
+  >`
+    SELECT id, execution_id, to_char(start_date,'YYYY-MM-DD') AS start_date, to_char(end_date,'YYYY-MM-DD') AS end_date,
+           load_offset, rows_upserted
     FROM dune_runs
     WHERE dataset = ${ds.name} AND state = 'pending' AND execution_id IS NOT NULL
     ORDER BY id DESC LIMIT 1`;
@@ -173,11 +177,15 @@ export async function runIngest(
   let runId: number;
   let executionId: string;
   let window: Window;
+  let loadOffset: number | null = null; // rows of this execution already in MotherDuck
+  let loaded = 0;
 
   if (pending && !opts.start) {
     runId = pending.id;
     executionId = pending.execution_id;
     window = { start: pending.start_date, end: pending.end_date };
+    loadOffset = pending.load_offset;
+    loaded = pending.rows_upserted ?? 0;
   } else {
     window = await nextWindow(ds.name, { start: opts.start, end: opts.end, maxDays: opts.maxDays });
     if (window.start >= window.end && !opts.force) {
@@ -217,20 +225,37 @@ export async function runIngest(
     return { ...base, action: "failed", runId, executionId, ...dates(window), exportCreditsEst: exportEst, message: msg };
   }
 
-  // 4) Load the window into MotherDuck in one transaction (datasets may delete the window first).
-  let loaded = 0;
-  await mdTx(async (exec) => {
-    if (ds.prepare) await exec(ds.prepare(window));
-    for await (const page of resultPages<Row>(executionId)) {
-      for (let i = 0; i < page.length; i += 1000) {
-        const chunk = page.slice(i, i + 1000);
-        if (chunk.length) {
-          await exec(ds.load(chunk));
-          loaded += chunk.length;
-        }
-      }
+  // 4) Load into MotherDuck page by page (10k rows), committing each page and recording the
+  //    offset in dune_runs. If time runs short we stop cleanly as `pending`; the next call
+  //    continues from the offset, so pages already pulled are never exported (paid) twice.
+  //    The window is cleared once, before the first page.
+  if (loadOffset == null) {
+    if (ds.prepare) await mdTx((exec) => exec(ds.prepare!(window)));
+    loadOffset = 0;
+    await sql`UPDATE dune_runs SET load_offset = 0, rows_upserted = 0 WHERE id = ${runId}`;
+  }
+  for await (const page of resultPages<Row>(executionId, 10_000, loadOffset)) {
+    const t0 = Date.now();
+    await mdTx(async (exec) => {
+      for (let i = 0; i < page.rows.length; i += 2000) await exec(ds.load(page.rows.slice(i, i + 2000)));
+    });
+    loaded += page.rows.length;
+    const next = page.nextOffset ?? page.offset + page.rows.length;
+    await sql`UPDATE dune_runs SET load_offset = ${next}, rows_upserted = ${loaded} WHERE id = ${runId}`;
+    console.log(`${ds.name} run ${runId}: loaded ${page.rows.length} rows (offset ${page.offset}) in ${Date.now() - t0} ms`);
+    // Leave room for the next page; a killed function would lose the open transaction.
+    if (page.nextOffset !== undefined && until - Date.now() < 45_000) {
+      return {
+        ...base,
+        action: "pending",
+        runId,
+        executionId,
+        ...dates(window),
+        rowsUpserted: loaded,
+        message: `Loaded ${loaded} rows so far; continues from row ${next} on the next run.`,
+      };
     }
-  });
+  }
 
   await finish(runId, status, "completed", loaded);
   const usage = await getUsage();

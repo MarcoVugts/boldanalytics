@@ -30,6 +30,7 @@ Kept lean because Dune export costs 10 credits/MB on Analyst. Measured for 2026-
 - Already up to date → Dune is **not** called (no credits).
 - The very first run loads only yesterday. **History backfill** runs automatically inside the daily job with the function time left: 5-day chunks, newest first, from the oldest loaded day back to `BACKFILL_FROM` (2026-08-16, in `lib/ingest.ts`). First it loads routes for the whole history once. Guards: ≤200 export credits per chunk, a chunk only starts with ≥140 s left, pauses when the Dune billing period passes 3,500 credits, stops if a chunk returns no rows. When a run ends with time running out, it **continues by itself**: it calls `/api/cron/backfill?chain=n` (with `CRON_SECRET`), which answers 202 and works in `after()`, until done, paused or stopped (max 40 links). A lease lock in Neon (`job_locks`) keeps it to one backfill at a time. Done when `/ops` shows the first day at 2026-08-16 (or the response says `backfill.done: true`).
 - If a Dune execution takes longer than the function budget, it's stored as `pending` and the next call resumes it instead of paying for a new execution.
+- Results are loaded into MotherDuck page by page (10k rows), each page committed and its offset stored in `dune_runs.load_offset`. If the function runs short of time the run stays `pending` and the next call continues from that offset, so no page is exported (paid) twice. Per-page timings are in the Vercel logs (`trades run N: loaded … rows … in … ms`).
 
 Every execution is logged in `dune_runs`. See `/ops`.
 
