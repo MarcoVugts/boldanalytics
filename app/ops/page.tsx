@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Stat } from "@/components/Stat";
+import { OpsExport } from "@/components/OpsExport";
 import { bytes, int, num } from "@/lib/format";
 import { Suspense } from "react";
 import { getClientStatement, getJobEvents, getMdStats, getRunTotals, getRuns } from "@/lib/queries/trades";
@@ -68,6 +69,9 @@ export default async function Ops() {
         <p className="mt-1 text-sm text-ink-2">
           Every Dune execution the loader made. Execution credits come from Dune; export credits are estimated from result size (Analyst: 10 credits per MB).
         </p>
+        <div className="mt-3">
+          <OpsExport />
+        </div>
       </header>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
