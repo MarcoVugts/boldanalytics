@@ -261,7 +261,13 @@ const BACKFILL_MAX_EXPORT = 200; // credits per chunk (~60–150 expected)
 const BACKFILL_STOP_AT_PERIOD_CREDITS = 3500; // of the 4,000 included in the Dune plan
 const BACKFILL_MIN_TIME_MS = 140_000; // only start a chunk with this much function time left
 
-export type BackfillStatus = { done: boolean; oldestDay: string | null; message?: string };
+export type BackfillStatus = {
+  done: boolean;
+  oldestDay: string | null;
+  message?: string;
+  /** stopped only to wait (e.g. Dune still executing): the next link should try again */
+  retry?: boolean;
+};
 
 async function oldestLoadedDay(): Promise<string | null> {
   const [r] = await md<{ d: string | null }>`SELECT strftime(MIN(day), '%Y-%m-%d') AS d FROM trades_daily`;
@@ -284,7 +290,7 @@ async function withLock<T>(name: string, ms: number, fn: () => Promise<T>): Prom
 }
 
 /** True when another call should continue the backfill (not done, nothing paused or failed). */
-export const backfillShouldContinue = (s?: BackfillStatus) => !!s && !s.done && !s.message;
+export const backfillShouldContinue = (s?: BackfillStatus) => !!s && !s.done && (!s.message || !!s.retry);
 
 export async function runBackfill(
   deadline: number,
@@ -297,10 +303,22 @@ export async function runBackfill(
 async function backfillLoop(deadline: number, trigger?: string): Promise<{ results: IngestResult[]; status: BackfillStatus }> {
   const sql = db();
   const results: IngestResult[] = [];
-  const status = async (message?: string): Promise<BackfillStatus> => {
+  const status = async (message?: string, retry = false): Promise<BackfillStatus> => {
     const oldest = await oldestLoadedDay();
-    return { done: !!oldest && oldest <= BACKFILL_FROM, oldestDay: oldest, message };
+    return { done: !!oldest && oldest <= BACKFILL_FROM, oldestDay: oldest, message, ...(retry ? { retry } : {}) };
   };
+
+  // Finish executions an earlier call left pending (no new Dune execution, so no new credits
+  // for execution). Long ones (the routes history scans months of trades) can take minutes.
+  for (const name of ["routes", "trades"]) {
+    const [p] = await sql`SELECT 1 FROM dune_runs WHERE dataset = ${name} AND state = 'pending' AND execution_id IS NOT NULL LIMIT 1`;
+    if (!p) continue;
+    if (deadline - Date.now() < 60_000) return { results, status: await status(`Out of time before resuming ${name}.`, true) };
+    const r = await runIngest(name, { budgetMs: deadline - Date.now() - 20_000, trigger });
+    results.push(r);
+    if (r.action === "pending") return { results, status: await status(`${name}: Dune is still executing; the next run resumes it.`, true) };
+    if (r.action !== "completed") return { results, status: await status(`Resuming ${name}: ${r.message ?? r.action}`) };
+  }
 
   // Routes for the whole history once (small export): backfilled trades need their route labels.
   const [routesDone] = await sql<{ ok: boolean }[]>`
@@ -317,13 +335,14 @@ async function backfillLoop(deadline: number, trigger?: string): Promise<{ resul
       trigger,
     });
     results.push(r);
-    if (r.action !== "completed") return { results, status: await status(`Routes history: ${r.action}`) };
+    if (r.action === "pending") return { results, status: await status("Routes history: Dune is still executing; the next run resumes it.", true) };
+    if (r.action !== "completed") return { results, status: await status(`Routes history: ${r.message ?? r.action}`) };
   }
 
   while (deadline - Date.now() > BACKFILL_MIN_TIME_MS) {
     // A pending execution is resumed by the normal trades step; don't pay for a new one meanwhile.
     const [pending] = await sql`SELECT 1 FROM dune_runs WHERE dataset = 'trades' AND state = 'pending' LIMIT 1`;
-    if (pending) return { results, status: await status("A trades run is still pending; it is resumed on the next run.") };
+    if (pending) return { results, status: await status("A trades run is still pending; it is resumed on the next run.", true) };
 
     const [usage] = await sql<{ used: number | null }[]>`
       SELECT period_credits_used::float8 AS used FROM dune_runs WHERE period_credits_used IS NOT NULL ORDER BY id DESC LIMIT 1`;
@@ -342,6 +361,7 @@ async function backfillLoop(deadline: number, trigger?: string): Promise<{ resul
       trigger,
     });
     results.push(r);
+    if (r.action === "pending") return { results, status: await status("Trades chunk: Dune is still executing; the next run resumes it.", true) };
     if (r.action !== "completed") return { results, status: await status(`Stopped: ${r.message ?? r.action}`) };
     // Nothing loaded: the oldest day would not move and we'd repeat this window. Stop instead.
     if (!r.rowsUpserted) return { results, status: await status(`Stopped: no rows for ${start} → ${oldest}.`) };
