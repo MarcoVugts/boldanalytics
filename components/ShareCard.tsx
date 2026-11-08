@@ -124,11 +124,18 @@ export function ShareCard({
           <span className="text-ink-3">Tokenized Stocks on Base</span>
         </div>
       )}
-      {portrait && <div className="mb-2 text-[17px] font-semibold uppercase tracking-[0.12em] text-ink-3">Tokenized Stocks on Base</div>}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className={`${portrait ? "text-[28px] leading-tight font-semibold" : exporting ? "text-2xl font-semibold" : "text-sm font-medium"} text-ink`}>{title}</h2>
-          {subText && <p className={`mt-1 ${exporting ? "text-[15px]" : "text-xs"} text-ink-3`}>{subText}</p>}
+          {portrait ? (
+            // One title block: story and chart in the same size, the chart line a shade lighter.
+            <h2 className="text-[30px] font-semibold leading-[1.15] tracking-tight">
+              <span className="block text-ink">Tokenized stocks on Base</span>
+              <span className="block text-ink-2">{title}</span>
+            </h2>
+          ) : (
+            <h2 className={`${exporting ? "text-2xl font-semibold" : "text-sm font-medium"} text-ink`}>{title}</h2>
+          )}
+          {subText && <p className={`${portrait ? "mt-2" : "mt-1"} ${exporting ? "text-[15px]" : "text-xs"} text-ink-3`}>{subText}</p>}
         </div>
         {exporting && !portrait && period && (
           <div className="shrink-0 rounded-md bg-surface-0 px-3 py-1.5 text-right">
