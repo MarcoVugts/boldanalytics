@@ -13,6 +13,7 @@
 // with its execution_id; the next invocation picks it up instead of paying for a new one.
 
 import { db } from "./db";
+import { logEvent } from "./events";
 import { addr, md, mdTx, raw, sqlText } from "./md";
 import {
   estimateExportCredits,
@@ -242,7 +243,7 @@ export async function runIngest(
     loaded += page.rows.length;
     const next = page.nextOffset ?? page.offset + page.rows.length;
     await sql`UPDATE dune_runs SET load_offset = ${next}, rows_upserted = ${loaded} WHERE id = ${runId}`;
-    console.log(`${ds.name} run ${runId}: loaded ${page.rows.length} rows (offset ${page.offset}) in ${Date.now() - t0} ms`);
+    await logEvent("load", `${ds.name} run ${runId}: ${page.rows.length} rows at offset ${page.offset} in ${Date.now() - t0} ms`);
     // Leave room for the next page; a killed function would lose the open transaction.
     if (page.nextOffset !== undefined && until - Date.now() < 45_000) {
       return {

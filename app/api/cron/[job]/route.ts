@@ -8,22 +8,40 @@ import {
   type BackfillStatus,
   type IngestResult,
 } from "@/lib/ingest";
+import { logEvent } from "@/lib/events";
 
 // The backfill continues by calling itself (?chain=n) until it is done, paused or stopped.
 // Each chained call answers 202 at once and does its work in after(), within maxDuration.
 const MAX_CHAIN = 40;
 
+// Call ourselves on the production domain (VERCEL_PROJECT_PRODUCTION_URL is set by Vercel);
+// the request's own host can be a deployment URL behind Vercel's deployment protection.
+function selfOrigin(req: NextRequest) {
+  const prod = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  return prod ? `https://${prod}` : req.nextUrl.origin;
+}
+
 async function kickBackfill(origin: string, secret: string, n: number) {
-  if (n > MAX_CHAIN) return console.log(`backfill chain: stopping at ${MAX_CHAIN} links`);
+  if (n > MAX_CHAIN) return logEvent("backfill", "chain limit reached", { max: MAX_CHAIN }, n);
+  const url = `${origin}/api/cron/backfill?chain=${n}`;
   try {
-    const res = await fetch(`${origin}/api/cron/backfill?chain=${n}`, {
-      headers: { authorization: `Bearer ${secret}` },
-      signal: AbortSignal.timeout(20_000),
-    });
-    console.log(`backfill chain: link ${n} -> ${res.status}`);
+    const res = await fetch(url, { headers: { authorization: `Bearer ${secret}` }, signal: AbortSignal.timeout(20_000) });
+    const body = res.status === 202 ? "" : (await res.text().catch(() => "")).slice(0, 300);
+    await logEvent("backfill", res.status === 202 ? "next link started" : "next link refused", { url, status: res.status, body }, n);
   } catch (e) {
-    console.error(`backfill chain: link ${n} failed`, e);
+    await logEvent("backfill", "next link failed", { url, error: String(e) }, n);
   }
+}
+
+/** One line per backfill run: what it loaded and why it stopped. */
+function summarize(results: (IngestResult | { dataset: string; action: string })[], status?: BackfillStatus) {
+  return {
+    chunks: results.map((r) => {
+      const x = r as IngestResult;
+      return `${x.dataset} ${x.startDate ?? ""}→${x.endDate ?? ""} ${x.action}${x.rowsUpserted != null ? ` ${x.rowsUpserted} rows` : ""}${x.message ? ` (${x.message})` : ""}`;
+    }),
+    status,
+  };
 }
 
 // Hobby allows up to 300s; unfinished Dune executions are stored and resumed next call.
@@ -72,14 +90,16 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ job: string
   // A link in the self-continuing backfill chain: answer now, work after the response.
   const chain = Number(q.get("chain") ?? 0);
   if (job === "backfill" && chain > 0) {
-    const origin = req.nextUrl.origin;
+    const origin = selfOrigin(req);
     after(async () => {
+      await logEvent("backfill", "link start", null, chain);
       // Resume a pending trades execution first (no Dune call if there is none and we're up to date).
       await runIngest("trades", { budgetMs: 60_000, trigger: "chain" }).catch((err) => console.error("trades", err));
-      const b = await runBackfill(deadline, "chain").catch((err) => {
-        console.error("backfill", err);
+      const b = await runBackfill(deadline, "chain").catch(async (err) => {
+        await logEvent("backfill", "error", String(err), chain);
         return null;
       });
+      if (b) await logEvent("backfill", backfillShouldContinue(b.status) ? "link done, continuing" : "link done, stopping", summarize(b.results, b.status), chain);
       if (b?.results.some((r) => r.action === "completed")) revalidateTag("trades", "max");
       revalidateTag("runs", "max");
       console.log(JSON.stringify({ job, chain, results: b?.results, backfill: b?.status }));
@@ -105,9 +125,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ job: string
       const b = await runBackfill(deadline, trigger);
       results.push(...b.results.map((r) => ({ ...r, dataset: `${r.dataset} (backfill)` })));
       backfill = b.status;
+      await logEvent("backfill", `${trigger} run done${backfillShouldContinue(backfill) ? ", continuing" : ", stopping"}`, summarize(b.results, b.status));
     } catch (err) {
-      console.error("backfill", err);
       backfill = { done: false, oldestDay: null, message: String(err) };
+      await logEvent("backfill", "error", String(err));
     }
   }
 
@@ -118,7 +139,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ job: string
   const ok = results.every((r) => r.action !== "error" || r.dataset === "tokens");
   // Not finished and nothing paused or failed: continue right away in a new invocation.
   if (backfillShouldContinue(backfill)) {
-    const origin = req.nextUrl.origin;
+    const origin = selfOrigin(req);
     after(() => kickBackfill(origin, secret, 1));
   }
   console.log(JSON.stringify({ job, trigger, results, backfill }));

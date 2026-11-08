@@ -219,3 +219,21 @@ export async function getMdStats(): Promise<MdStats | null> {
   }
   return { ...r, bytes };
 }
+
+export type JobEvent = { id: number; at: string; job: string; link: number | null; event: string; detail: string | null };
+export type BackfillLock = { locked_until: string | null; held: boolean };
+
+/** Latest loader/backfill events (Neon). Short-lived cache: a dynamic hole on /ops. */
+export async function getJobEvents(limit = 30): Promise<{ events: JobEvent[]; lock: BackfillLock | null }> {
+  "use cache";
+  cacheLife("seconds");
+  cacheTag("runs");
+  if (!hasDb()) return { events: [], lock: null };
+  const events = await db()<JobEvent[]>`
+    SELECT id::float8 AS id, to_char(at AT TIME ZONE 'UTC', 'MM-DD HH24:MI:SS') AS at, job, link, event, detail
+    FROM job_events ORDER BY id DESC LIMIT ${limit}`;
+  const [lock] = await db()<BackfillLock[]>`
+    SELECT to_char(locked_until AT TIME ZONE 'UTC', 'MM-DD HH24:MI:SS') AS locked_until, locked_until > now() AS held
+    FROM job_locks WHERE name = 'backfill'`;
+  return { events: plain(events), lock: lock ? { ...lock } : null };
+}

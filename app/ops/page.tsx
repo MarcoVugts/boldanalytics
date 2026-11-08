@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Stat } from "@/components/Stat";
 import { bytes, int, num } from "@/lib/format";
-import { getClientStatement, getMdStats, getRunTotals, getRuns } from "@/lib/queries/trades";
+import { Suspense } from "react";
+import { getClientStatement, getJobEvents, getMdStats, getRunTotals, getRuns } from "@/lib/queries/trades";
 
 // What one credit costs on your plan (Analyst: $75 / 4,000). Used for the pass-through statement.
 const USD_PER_CREDIT = Number(process.env.DUNE_USD_PER_CREDIT ?? 75 / 4000);
@@ -15,6 +16,48 @@ const stateColor: Record<string, string> = {
   over_budget: "text-critical",
   pending: "text-warning",
 };
+
+/** Backfill / loader log: why a self-chaining run stopped. Fetched fresh (cacheLife seconds). */
+async function BackfillLog() {
+  const { events, lock } = await getJobEvents();
+  return (
+    <section className="space-y-2">
+      <div>
+        <h2 className="text-lg font-bold tracking-tight">Backfill &amp; loader log</h2>
+        <p className="text-sm text-ink-2">
+          Newest first, refreshed every ~30 s. A <b>link start</b> without a matching <b>link done</b> means the function was stopped
+          (time limit). Lock:{" "}
+          {lock?.held ? <span className="text-warning">held until {lock.locked_until} UTC</span> : <span className="text-good">free</span>}
+        </p>
+      </div>
+      <div className="max-h-[28rem] overflow-auto rounded-lg border border-border bg-surface-1">
+        <table className="w-full text-xs">
+          <thead className="sticky top-0 bg-surface-1 text-left text-ink-3">
+            <tr className="border-b border-border">
+              {["UTC", "Job", "Link", "Event", "Detail"].map((h) => (
+                <th key={h} className="px-3 py-2 font-normal">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {events.map((e) => (
+              <tr key={e.id} className="border-b border-border align-top last:border-0">
+                <td className="whitespace-nowrap px-3 py-1.5">{e.at}</td>
+                <td className="px-3 py-1.5 text-ink-2">{e.job}</td>
+                <td className="px-3 py-1.5 text-ink-2">{e.link ?? ""}</td>
+                <td className={`whitespace-nowrap px-3 py-1.5 font-medium ${/fail|refused|error|stopping/.test(e.event) ? "text-critical" : ""}`}>{e.event}</td>
+                <td className="break-all px-3 py-1.5 font-mono text-ink-2">{e.detail ?? ""}</td>
+              </tr>
+            ))}
+            {!events.length && (
+              <tr><td colSpan={5} className="px-3 py-6 text-center text-ink-3">No events yet.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
 
 export default async function Ops() {
   const [runs, totals, statement, mdStats] = await Promise.all([getRuns(), getRunTotals(), getClientStatement(), getMdStats()]);
@@ -46,6 +89,10 @@ export default async function Ops() {
         <Stat label="Days loaded" value={mdStats ? int(mdStats.days) : "—"} />
         <Stat label="MotherDuck size" value={mdStats?.bytes != null ? bytes(mdStats.bytes) : "—"} note="free tier: 10 GB" />
       </div>
+
+      <Suspense fallback={<p className="text-sm text-ink-3">Loading log…</p>}>
+        <BackfillLog />
+      </Suspense>
 
       <section className="space-y-2">
         <div>
