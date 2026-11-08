@@ -66,7 +66,12 @@ function draw(now) {
   while (next < rows.length && rows[next][0] <= upto) {
     const [b, o, d, s, v] = rows[next++]; traded += v; const r = radius(v);
     const op = colOps[o], dx = DEX[dexOf(d)], st = colSym[s];
-    parts.push({ c: op.color, r, p: [[X[0] + 8, yIn(op, Math.min(r, op.h / 2))], [X[1], yIn(dx, Math.min(r, dx.h / 2))], [X[2] - 8, yIn(st, Math.min(r, st.h / 2))]], t: 0, sp: 0.0075 + rnd() * 0.004 });
+    // Keep the dot's relative height through the DEX column, so the first leg runs almost straight
+    // and only the second leg bends towards the stock (like a Sankey), instead of zig-zagging.
+    const y0 = yIn(op, Math.min(r, op.h / 2));
+    const rel = (y0 - TOP) / (BOTTOM - TOP);
+    const y1 = Math.min(dx.y + dx.h - r, Math.max(dx.y + r, dx.y + rel * dx.h + (rnd() - 0.5) * 6));
+    parts.push({ c: op.color, r, p: [[X[0] + 8, y0], [X[1], y1], [X[2] - 8, yIn(st, Math.min(r, st.h / 2))]], t: 0, sp: 0.0075 + rnd() * 0.004 });
   }
   ctx.clearRect(0, 0, W, H);
   ctx.font = "600 17px Geist"; ctx.fillStyle = "#79807f";
