@@ -1,6 +1,8 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { db, hasDb } from "../db";
+import { hasMd, md } from "../md";
 
+// Chart data comes from MotherDuck (md); the run log for /ops from Neon (db).
 // All reads are cached ('use cache') and refreshed when the cron loader calls
 // revalidateTag("trades" | "runs"), so page views don't hit the database.
 const plain = <T,>(rows: readonly T[]): T[] => rows.map((r) => ({ ...r }));
@@ -23,13 +25,13 @@ export async function getOverview(): Promise<Overview | null> {
   "use cache";
   cacheLife("hours");
   cacheTag("trades");
-  if (!hasDb()) return null;
-  const [r] = await db()<Overview[]>`
+  if (!hasMd()) return null;
+  const [r] = await md<Overview>`
     SELECT COALESCE(SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0) - COALESCE(cross_usd,0)), 0)::float8 AS volume_usd,
            COALESCE(SUM(swaps), 0)::float8                                  AS trades,
            COUNT(DISTINCT wallet)::float8                                   AS wallets,
-           to_char(MIN(day), 'YYYY-MM-DD')                                  AS first_day,
-           to_char(MAX(day), 'YYYY-MM-DD')                                  AS last_day
+           strftime(MIN(day), '%Y-%m-%d')                                  AS first_day,
+           strftime(MAX(day), '%Y-%m-%d')                                  AS last_day
     FROM trades_daily`;
   return { ...r };
 }
@@ -38,9 +40,9 @@ export async function getDaily(): Promise<DailyPoint[]> {
   "use cache";
   cacheLife("hours");
   cacheTag("trades");
-  if (!hasDb()) return [];
-  return plain(await db()<DailyPoint[]>`
-    SELECT to_char(day, 'YYYY-MM-DD')                                      AS day,
+  if (!hasMd()) return [];
+  return plain(await md<DailyPoint>`
+    SELECT strftime(day, '%Y-%m-%d')                                      AS day,
            SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0) - COALESCE(cross_usd,0))::float8 AS volume_usd,
            SUM(swaps)::float8                                              AS trades,
            COUNT(DISTINCT wallet)::float8                                  AS wallets
@@ -53,8 +55,8 @@ export async function getByToken(): Promise<TokenRow[]> {
   "use cache";
   cacheLife("hours");
   cacheTag("trades");
-  if (!hasDb()) return [];
-  return plain(await db()<TokenRow[]>`
+  if (!hasMd()) return [];
+  return plain(await md<TokenRow>`
     SELECT t.symbol,
            SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0))::float8          AS volume_usd,
            SUM(swaps)::float8                                              AS trades,
@@ -69,8 +71,8 @@ export async function getByDex(): Promise<GroupRow[]> {
   "use cache";
   cacheLife("hours");
   cacheTag("trades");
-  if (!hasDb()) return [];
-  return plain(await db()<GroupRow[]>`
+  if (!hasMd()) return [];
+  return plain(await md<GroupRow>`
     SELECT COALESCE(r.dex, 'Unknown') AS key,
            SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0) - COALESCE(cross_usd,0))::float8 AS volume_usd,
            SUM(swaps)::float8               AS swaps,
@@ -86,8 +88,8 @@ export async function getByEntryContract(limit = 12): Promise<GroupRow[]> {
   "use cache";
   cacheLife("hours");
   cacheTag("trades");
-  if (!hasDb()) return [];
-  return plain(await db()<GroupRow[]>`
+  if (!hasMd()) return [];
+  return plain(await md<GroupRow>`
     SELECT COALESCE(r.app || CASE WHEN r.app_confidence = 'suspected' AND r.app <> 'Unlabeled bot' THEN ' (suspected)' ELSE '' END, 'Unlabeled') AS key,
            MAX(COALESCE(r.app_kind, 'unknown'))   AS kind,
            SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0) - COALESCE(cross_usd,0))::float8 AS volume_usd,
@@ -188,4 +190,32 @@ export async function getClientStatement(months = 6): Promise<ClientMonthRow[]> 
     WHERE started_at AT TIME ZONE 'UTC' >= date_trunc('month', now() AT TIME ZONE 'UTC') - make_interval(months => ${months - 1})
     GROUP BY 1, 2
     ORDER BY 1 DESC, (COALESCE(SUM(cost_credits), 0) + COALESCE(SUM(export_credits_est), 0)) DESC`);
+}
+
+export type MdStats = { rows: number; days: number; first_day: string | null; last_day: string | null; bytes: number | null };
+
+/** Size of the analytics data in MotherDuck (free tier: 10 GB). */
+export async function getMdStats(): Promise<MdStats | null> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("trades");
+  if (!hasMd()) return null;
+  const [r] = await md<Omit<MdStats, "bytes">>`
+    SELECT COUNT(*)::DOUBLE AS rows, COUNT(DISTINCT day)::DOUBLE AS days,
+           strftime(MIN(day), '%Y-%m-%d') AS first_day, strftime(MAX(day), '%Y-%m-%d') AS last_day
+    FROM trades_daily`;
+  let bytes: number | null = null;
+  try {
+    // DuckDB reports sizes as text ("12.5 MiB"); data not yet checkpointed sits in the WAL.
+    const [s] = await md<{ size: string; wal: string }>`
+      SELECT database_size AS size, wal_size AS wal FROM pragma_database_size() WHERE database_name = current_database()`;
+    const parse = (t?: string) => {
+      const m = t?.match(/([\d.]+)\s*(bytes|KiB|MiB|GiB|TiB)/);
+      return m ? Number(m[1]) * { bytes: 1, KiB: 2 ** 10, MiB: 2 ** 20, GiB: 2 ** 30, TiB: 2 ** 40 }[m[2] as "bytes"] : 0;
+    };
+    bytes = parse(s?.size) + parse(s?.wal) || null;
+  } catch {
+    bytes = null;
+  }
+  return { ...r, bytes };
 }

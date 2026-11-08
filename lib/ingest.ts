@@ -12,8 +12,8 @@
 // A run that doesn't finish within the function's time budget is stored as `pending`
 // with its execution_id; the next invocation picks it up instead of paying for a new one.
 
-import type postgres from "postgres";
-import { db, hexToBytes } from "./db";
+import { db } from "./db";
+import { addr, md, mdTx, raw, sqlText } from "./md";
 import {
   estimateExportCredits,
   executeQuery,
@@ -26,6 +26,8 @@ import {
   type ExecutionStatus,
   type Performance,
 } from "./dune";
+
+// Storage: analytics tables live in MotherDuck (lib/md.ts); the run log (dune_runs) in Neon.
 
 const OVERLAP_DAYS = Number(process.env.INGEST_OVERLAP_DAYS ?? 0);
 const MAX_DAYS_PER_RUN = Number(process.env.INGEST_MAX_DAYS_PER_RUN ?? 7);
@@ -42,56 +44,55 @@ type Dataset = {
   queryEnv: string;
   /** who the credits are for (dune_runs.client); default "internal" = own data stories */
   client?: string;
-  /** write one page of results; runs inside the window's transaction */
-  load: (tx: postgres.TransactionSql, rows: Row[]) => Promise<number>;
-  /** called once per window before the first page (e.g. delete the window's days) */
-  prepare?: (tx: postgres.TransactionSql, w: Window) => Promise<void>;
+  /** SQL run once per window before the first page (e.g. delete the window's days) */
+  prepare?: (w: Window) => string;
+  /** SQL that writes one chunk of result rows */
+  load: (rows: Row[]) => string;
 };
 
-const num = (v: unknown) => (v == null ? null : Number(v));
+const num = (v: unknown) => (v == null || v === "" ? null : Number(v));
+const day = (v: unknown) => {
+  const d = String(v).slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new Error(`bad day: ${d}`);
+  return d;
+};
+const int = (v: unknown) => {
+  const n = Number(v);
+  if (!Number.isInteger(n)) throw new Error(`not an integer: ${v}`);
+  return n;
+};
+/** route ids are 53-bit, so they fit a JS number exactly */
+const route = (v: unknown) => {
+  const n = Number(v);
+  if (!Number.isSafeInteger(n)) throw new Error(`bad route id: ${v}`);
+  return n;
+};
 
 export const DATASETS: Record<string, Dataset> = {
   // day x wallet x symbol x route: wallet-level, joinable, ~114 bytes/row on Dune.
   trades: {
     name: "trades",
     queryEnv: "DUNE_QUERY_TRADES",
-    prepare: async (tx, w) => {
-      await tx`DELETE FROM trades_daily WHERE day >= ${w.start} AND day < ${w.end}`;
-    },
-    load: async (tx, rows) => {
-      const batch = rows.map((r) => ({
-        day: String(r.day).slice(0, 10),
-        wallet: hexToBytes(String(r.wallet)),
-        symbol: String(r.symbol),
-        route: String(r.route), // bigint: pass as string, Postgres casts
-        trades: Number(r.trades),
-        swaps: Number(r.swaps),
-        buy_usd: num(r.buy_usd),
-        sell_usd: num(r.sell_usd),
-        cross_usd: num(r.cross_usd),
-        buy_amount: num(r.buy_amount),
-        sell_amount: num(r.sell_amount),
-      }));
-      await tx`INSERT INTO trades_daily ${tx(batch)}`;
-      return batch.length;
+    prepare: (w) => sqlText`DELETE FROM trades_daily WHERE day >= CAST(${w.start} AS DATE) AND day < CAST(${w.end} AS DATE)`,
+    load: (rows) => {
+      const values = rows.map(
+        (r) => sqlText`(CAST(${day(r.day)} AS DATE), ${addr(r.wallet)}, ${String(r.symbol)}, ${route(r.route)}, ${int(r.trades)}, ${int(r.swaps)},
+          ${num(r.buy_usd)}, ${num(r.sell_usd)}, ${num(r.cross_usd)}, ${num(r.buy_amount)}, ${num(r.sell_amount)})`,
+      );
+      return `INSERT INTO trades_daily (day, wallet, symbol, route, trades, swaps, buy_usd, sell_usd, cross_usd, buy_amount, sell_amount)
+        VALUES ${values.join(",")}`;
     },
   },
   // route id -> (tx_to, project, version). Small; upsert.
   routes: {
     name: "routes",
     queryEnv: "DUNE_QUERY_ROUTES",
-    load: async (tx, rows) => {
-      const batch = rows.map((r) => ({
-        route: String(r.route),
-        tx_to: hexToBytes(String(r.tx_to)),
-        project: String(r.project),
-        version: String(r.version ?? ""),
-        first_day: String(r.first_day).slice(0, 10),
-      }));
-      await tx`
-        INSERT INTO routes ${tx(batch)}
-        ON CONFLICT (route) DO UPDATE SET first_day = LEAST(routes.first_day, EXCLUDED.first_day)`;
-      return batch.length;
+    load: (rows) => {
+      const values = rows.map(
+        (r) => sqlText`(${route(r.route)}, ${addr(r.tx_to)}, ${String(r.project)}, ${String(r.version ?? "")}, CAST(${day(r.first_day)} AS DATE))`,
+      );
+      return `INSERT INTO routes (route, tx_to, project, version, first_day) VALUES ${values.join(",")}
+        ON CONFLICT (route) DO UPDATE SET first_day = LEAST(routes.first_day, excluded.first_day)`;
     },
   },
 };
@@ -210,14 +211,17 @@ export async function runIngest(
     return { ...base, action: "failed", runId, executionId, ...dates(window), exportCreditsEst: exportEst, message: msg };
   }
 
-  // 4) Load the window in one transaction (datasets may delete the window first).
+  // 4) Load the window into MotherDuck in one transaction (datasets may delete the window first).
   let loaded = 0;
-  await sql.begin(async (tx) => {
-    await ds.prepare?.(tx, window);
+  await mdTx(async (exec) => {
+    if (ds.prepare) await exec(ds.prepare(window));
     for await (const page of resultPages<Row>(executionId)) {
       for (let i = 0; i < page.length; i += 1000) {
         const chunk = page.slice(i, i + 1000);
-        if (chunk.length) loaded += await ds.load(tx, chunk);
+        if (chunk.length) {
+          await exec(ds.load(chunk));
+          loaded += chunk.length;
+        }
       }
     }
   });
@@ -247,16 +251,13 @@ export async function syncTokens(): Promise<{ dataset: string; action: string; t
   const body = (await res.json()) as { tokens?: Record<string, unknown>[] };
   const rows = (body.tokens ?? [])
     .filter((t) => typeof t.contract_address === "string" && typeof t.symbol === "string")
-    .map((t) => ({
-      symbol: String(t.symbol).replace(/c$/, ""),
-      address: hexToBytes(String(t.contract_address)),
-      name: typeof t.name === "string" ? t.name : null,
-      raw: db().json(t as never),
-    }));
+    .map(
+      (t) =>
+        sqlText`(${String(t.symbol).replace(/c$/, "")}, ${addr(t.contract_address)}, ${typeof t.name === "string" ? t.name : null}, ${JSON.stringify(t)})`,
+    );
   if (rows.length) {
-    await db()`
-      INSERT INTO tokens ${db()(rows)}
-      ON CONFLICT (symbol) DO UPDATE SET address = EXCLUDED.address, name = EXCLUDED.name, raw = EXCLUDED.raw, updated_at = now()`;
+    await md`INSERT INTO tokens (symbol, address, name, raw) VALUES ${raw(rows.join(","))}
+      ON CONFLICT (symbol) DO UPDATE SET address = excluded.address, name = excluded.name, raw = excluded.raw, updated_at = now()`;
   }
   return { dataset: "tokens", action: "completed", tokens: rows.length };
 }

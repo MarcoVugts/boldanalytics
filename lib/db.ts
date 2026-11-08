@@ -1,5 +1,6 @@
 import postgres from "postgres";
 
+// Neon Postgres: the run log (dune_runs). Analytics tables live in MotherDuck (lib/md.ts).
 // One pooled client per server instance. Neon requires SSL; local Postgres doesn't.
 const globalForDb = globalThis as unknown as { sql?: postgres.Sql };
 
@@ -21,13 +22,3 @@ export function db(): postgres.Sql {
 }
 
 export const hasDb = () => Boolean(process.env.DATABASE_URL);
-
-/** "0xabc…" -> Buffer (bytea). */
-export function hexToBytes(hex: string): Buffer {
-  return Buffer.from(hex.startsWith("0x") ? hex.slice(2) : hex, "hex");
-}
-
-/** Buffer (bytea) -> "0xabc…". */
-export function bytesToHex(b: Uint8Array | Buffer | null): string {
-  return b ? "0x" + Buffer.from(b).toString("hex") : "";
-}

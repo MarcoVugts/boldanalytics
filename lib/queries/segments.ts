@@ -1,5 +1,5 @@
 import { cacheLife, cacheTag } from "next/cache";
-import { db, hasDb } from "../db";
+import { hasMd, md } from "../md";
 import { HF_TRADES_PER_DAY, type SegmentRow } from "../segments-shared";
 export { BUCKETS, type Dimension, type SegmentRow } from "../segments-shared";
 
@@ -10,8 +10,8 @@ export async function getSegments(): Promise<SegmentRow[]> {
   "use cache";
   cacheLife("hours");
   cacheTag("trades");
-  if (!hasDb()) return [];
-  const rows = await db()<SegmentRow[]>`
+  if (!hasMd()) return [];
+  const rows = await md<SegmentRow>`
     WITH wd AS (
       SELECT day, wallet,
              SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0) - COALESCE(cross_usd,0)) AS v,
@@ -29,14 +29,14 @@ export async function getSegments(): Promise<SegmentRow[]> {
              CASE WHEN s = 1 THEN 0 WHEN s = 2 THEN 1 WHEN s <= 5 THEN 2 ELSE 3 END AS bs
       FROM wd
     )
-    SELECT to_char(day, 'YYYY-MM-DD') AS day, 'volume' AS dim, bv AS bucket,
+    SELECT strftime(day, '%Y-%m-%d') AS day, 'volume' AS dim, bv AS bucket,
            COUNT(*)::float8 AS wallets, SUM(v)::float8 AS volume, SUM(t)::float8 AS trades
     FROM b GROUP BY 1, 3
     UNION ALL
-    SELECT to_char(day, 'YYYY-MM-DD'), 'trades', bt, COUNT(*)::float8, SUM(v)::float8, SUM(t)::float8
+    SELECT strftime(day, '%Y-%m-%d'), 'trades', bt, COUNT(*)::float8, SUM(v)::float8, SUM(t)::float8
     FROM b GROUP BY 1, 3
     UNION ALL
-    SELECT to_char(day, 'YYYY-MM-DD'), 'stocks', bs, COUNT(*)::float8, SUM(v)::float8, SUM(t)::float8
+    SELECT strftime(day, '%Y-%m-%d'), 'stocks', bs, COUNT(*)::float8, SUM(v)::float8, SUM(t)::float8
     FROM b GROUP BY 1, 3
     ORDER BY 1, 2, 3`;
   return rows.map((r) => ({ ...r, bucket: Number(r.bucket) }));
@@ -55,10 +55,9 @@ export async function getCoTrading(top = 12): Promise<CoTradeData> {
   "use cache";
   cacheLife("hours");
   cacheTag("trades");
-  if (!hasDb()) return { symbols: [], pairs: [], total: 0 };
-  const sql = db();
+  if (!hasMd()) return { symbols: [], pairs: [], total: 0 };
   const [symbols, pairs, [tot]] = await Promise.all([
-    sql<{ symbol: string; wallets: number }[]>`
+    md<{ symbol: string; wallets: number }>`
       WITH hf AS (
         SELECT DISTINCT wallet FROM (SELECT day, wallet, SUM(trades) AS t FROM trades_daily GROUP BY 1, 2) d
         WHERE t >= ${HF_TRADES_PER_DAY}
@@ -66,7 +65,7 @@ export async function getCoTrading(top = 12): Promise<CoTradeData> {
       SELECT symbol, COUNT(DISTINCT wallet)::float8 AS wallets
       FROM trades_daily WHERE wallet NOT IN (SELECT wallet FROM hf)
       GROUP BY 1 ORDER BY 2 DESC LIMIT ${top}`,
-    sql<CoTrade[]>`
+    md<CoTrade>`
       WITH hf AS (
         SELECT DISTINCT wallet FROM (SELECT day, wallet, SUM(trades) AS t FROM trades_daily GROUP BY 1, 2) d
         WHERE t >= ${HF_TRADES_PER_DAY}
@@ -82,7 +81,7 @@ export async function getCoTrading(top = 12): Promise<CoTradeData> {
       SELECT a.symbol AS x, b.symbol AS y, COUNT(*)::float8 AS both
       FROM ws a JOIN ws b ON a.wallet = b.wallet AND a.symbol <> b.symbol
       GROUP BY 1, 2`,
-    sql<{ total: number }[]>`
+    md<{ total: number }>`
       WITH hf AS (
         SELECT DISTINCT wallet FROM (SELECT day, wallet, SUM(trades) AS t FROM trades_daily GROUP BY 1, 2) d
         WHERE t >= ${HF_TRADES_PER_DAY}

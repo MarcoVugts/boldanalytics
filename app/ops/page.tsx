@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Stat } from "@/components/Stat";
 import { bytes, int, num } from "@/lib/format";
-import { getClientStatement, getRunTotals, getRuns } from "@/lib/queries/trades";
+import { getClientStatement, getMdStats, getRunTotals, getRuns } from "@/lib/queries/trades";
 
 // What one credit costs on your plan (Analyst: $75 / 4,000). Used for the pass-through statement.
 const USD_PER_CREDIT = Number(process.env.DUNE_USD_PER_CREDIT ?? 75 / 4000);
@@ -17,7 +17,7 @@ const stateColor: Record<string, string> = {
 };
 
 export default async function Ops() {
-  const [runs, totals, statement] = await Promise.all([getRuns(), getRunTotals(), getClientStatement()]);
+  const [runs, totals, statement, mdStats] = await Promise.all([getRuns(), getRunTotals(), getClientStatement(), getMdStats()]);
   return (
     <div className="space-y-6">
       <header>
@@ -39,7 +39,12 @@ export default async function Ops() {
           value={totals?.period_used != null ? `${num(totals.period_used)} / ${num(totals.period_included ?? 0)}` : "—"}
           note="all account usage, from Dune /usage"
         />
-        <Stat label="Database size" value={totals ? bytes(totals.db_bytes) : "—"} note="Neon free: 0.5–1 GB" />
+        <Stat label="Neon size (run log)" value={totals ? bytes(totals.db_bytes) : "—"} note="Neon free: 1 GB" />
+      </div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Stat label="MotherDuck rows (trades)" value={mdStats ? int(mdStats.rows) : "—"} note={mdStats?.first_day ? `${mdStats.first_day} → ${mdStats.last_day}` : "no data"} />
+        <Stat label="Days loaded" value={mdStats ? int(mdStats.days) : "—"} />
+        <Stat label="MotherDuck size" value={mdStats?.bytes != null ? bytes(mdStats.bytes) : "—"} note="free tier: 10 GB" />
       </div>
 
       <section className="space-y-2">
