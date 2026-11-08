@@ -1,4 +1,6 @@
 // Bold Analytics logo set (cube + bars in slate blue; stacked lockup "option C, closest").
+// Weights ("step 2", Nov 2026): cube line 6.5% of the icon box (was 7.5%), BOLD ExtraBold slightly
+// open (+1% tracking), ANALYTICS SemiBold tracked to the width of BOLD. Favicon/app marks keep heavier lines.
 //   node scripts/build-brand.mjs          -> public/brand/*.svg, app/icon.svg
 //   NODE_PATH=$(npm root -g) node scripts/render-brand-png.cjs   -> PNGs (needs Playwright)
 // Text is converted to paths (Montserrat), so the SVGs need no font installed.
@@ -19,7 +21,7 @@ const r = (n) => Math.round(n * 100) / 100;
 const pts = (a) => a.map(([x, y]) => `${r(x)},${r(y)}`).join(" ");
 
 /** Cube + bars icon in a box of size h at (x, y). */
-function icon(x, y, h, { fg, acc }, sw = 0.075) {
+function icon(x, y, h, { fg, acc }, sw = 0.065) {
   const k = h / 100, s = 40 * k, cx = x + 50 * k, cy = y + 50 * k, a = s * C30, w = sw * 100 * k, pad = w * 0.7;
   const hexp = [[0, -s], [a, -s / 2], [a, s / 2], [0, s], [-a, s / 2], [-a, -s / 2]].map(([dx, dy]) => [cx + dx, cy + dy]);
   // Bars sit inside the right face with the same margin on every side (stroke half-width + gap),
@@ -50,22 +52,22 @@ const inkBounds = (font, str, size, tr = 0) => { const p = new opentype.Path(); 
 
 const svg = (w, h, body, bg) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${r(w)} ${r(h)}" width="${Math.ceil(w)}" height="${Math.ceil(h)}">${bg ? `<rect width="100%" height="100%" fill="${bg}"/>` : ""}${body}</svg>\n`;
 
-/** Stacked: icon | BOLD over ANALYTICS, placed on the ink positions measured from the approved
- *  mockup (option C, closest), in units of the icon box height h:
- *    BOLD ink: top 0.1793h, left 1.250h · ANALYTICS ink: top 0.7554h, left 1.212h, width 1.674h. */
+/** Stacked: icon | BOLD over ANALYTICS, on the vertical ink positions measured from the approved
+ *  mockup (option C, closest), in units of the icon box height h: BOLD ink top 0.1793h,
+ *  ANALYTICS ink top 0.7554h; both start at 1.25h and ANALYTICS is tracked to the width of BOLD. */
 function stacked(t, bg) {
   const h = 200, pad = 16;
-  const boldSize = 0.56 * h, anaSize = 0.22 * h, boldTr = -0.01 * boldSize;
+  const boldSize = 0.56 * h, anaSize = 0.22 * h, boldTr = 0.01 * boldSize;
   const bInk = inkBounds(W800, "BOLD", boldSize, boldTr);
   const boldInkW = bInk.x2 - bInk.x1;
-  const a0 = inkBounds(W700, "ANALYTICS", anaSize);
-  const tracking = (1.674 * h - (a0.x2 - a0.x1)) / 8;
-  const aInk = inkBounds(W700, "ANALYTICS", anaSize, tracking);
-  const left = pad + 1.212 * h, boldLeft = pad + 1.25 * h;
+  const a0 = inkBounds(W600, "ANALYTICS", anaSize);
+  const tracking = (boldInkW - (a0.x2 - a0.x1)) / 8;
+  const aInk = inkBounds(W600, "ANALYTICS", anaSize, tracking);
+  const left = pad + 1.25 * h, boldLeft = pad + 1.25 * h;
   // inkBounds are relative to baseline 0, so baseline = desired ink top - y1
   const bold = text(W800, "BOLD", boldLeft - bInk.x1, 0.1793 * h - bInk.y1, boldSize, boldTr);
-  const ana = text(W700, "ANALYTICS", left - aInk.x1, 0.7554 * h - aInk.y1, anaSize, tracking);
-  const W = Math.max(left + 1.674 * h, boldLeft + boldInkW) + pad;
+  const ana = text(W600, "ANALYTICS", left - aInk.x1, 0.7554 * h - aInk.y1, anaSize, tracking);
+  const W = Math.max(left + (aInk.x2 - aInk.x1), boldLeft + boldInkW) + pad;
   return svg(W, h, `${icon(pad, 0, h, t)}<path d="${bold.d}" fill="${t.fg}"/><path d="${ana.d}" fill="${t.fg}"/>`, bg);
 }
 
@@ -75,11 +77,11 @@ function horizontal(t, bg) {
   const cap = (W800.tables.os2.sCapHeight / W800.unitsPerEm) * size;
   const baseline = (h + cap) / 2;
   const tx = pad + h + 0.28 * h;
-  const bInk = inkBounds(W800, "BOLD", size);
-  const bold = text(W800, "BOLD", tx - bInk.x1, baseline, size);
+  const bInk = inkBounds(W800, "BOLD", size, 0.02 * size);
+  const bold = text(W800, "BOLD", tx - bInk.x1, baseline, size, 0.02 * size);
   const ax = tx + (bInk.x2 - bInk.x1) + 0.3 * size;
-  const aInk = inkBounds(W600, "ANALYTICS", size, 0.06 * size);
-  const ana = text(W600, "ANALYTICS", ax - aInk.x1, baseline, size, 0.06 * size);
+  const aInk = inkBounds(W600, "ANALYTICS", size, 0.065 * size);
+  const ana = text(W600, "ANALYTICS", ax - aInk.x1, baseline, size, 0.065 * size);
   const W = ax + (aInk.x2 - aInk.x1) + pad;
   return svg(W, h, `${icon(pad, 0, h, t)}<path d="${bold.d}" fill="${t.fg}"/><path d="${ana.d}" fill="${t.fg}"/>`, bg);
 }

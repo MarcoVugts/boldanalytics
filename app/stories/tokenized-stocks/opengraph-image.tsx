@@ -33,7 +33,7 @@ export default async function Image() {
       <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between",
         background: "#f8f0e8", color: "#1e2a32", padding: "56px 64px", fontFamily: "Montserrat" }}>
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 26 }}>
-          <img src={logo} height={44} width={Math.round(44 * 6.8738)} alt="" />
+          <img src={logo} height={44} width={Math.round(44 * 6.9308)} alt="" />
           <span style={{ color: "#79807f" }}>Data story</span>
         </div>
         <div style={{ display: "flex", flexDirection: "column" }}>

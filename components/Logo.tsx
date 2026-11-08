@@ -1,5 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
-const RATIO = 687.38 / 100; // viewBox of logo-horizontal.svg (scripts/build-brand.mjs), keeps layout stable before load
+const RATIO = 693.08 / 100; // viewBox of logo-horizontal.svg (scripts/build-brand.mjs), keeps layout stable before load
 
 /** Horizontal logo. Renders both colour variants and lets CSS show the one for the active theme
  *  (device setting or the visitor's choice). forceLight is used for exported share images. */
