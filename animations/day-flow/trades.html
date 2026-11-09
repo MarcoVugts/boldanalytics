@@ -6,7 +6,7 @@
 @font-face{font-family:Geist;font-weight:600;src:url("../../node_modules/geist/dist/fonts/geist-sans/Geist-SemiBold.woff2")}
 *{box-sizing:border-box}
 body{margin:0;background:#f8f0e8;font-family:Geist,sans-serif;color:#1e2a32}
-.card{width:1080px;height:1080px;padding:60px 64px 40px;display:flex;flex-direction:column}
+.card{width:1080px;height:1080px;padding:60px 48px 40px;display:flex;flex-direction:column}
 h1{font:800 46px/1.12 Montserrat;margin:0;letter-spacing:-.01em}
 h1 span{display:block;color:#4b565d}
 .sub{font-size:20px;color:#79807f;margin-top:12px}
@@ -27,7 +27,7 @@ h1 span{display:block;color:#4b565d}
   <h1>Tokenized stocks on Base<span>The record day in motion</span></h1>
   <div class="sub">Every on-chain DEX trade on 6 Nov · one dot = one trade, sized by volume</div>
   <div style="position:relative;margin-top:22px">
-    <canvas id="c" width="952" height="748"></canvas>
+    <canvas id="c" width="984" height="748"></canvas>
     <div id="clock"><div class="t">00:00</div><div class="s"><i></i><span>NYSE closed</span></div><div class="v">$0M traded</div></div>
   </div>
   <div class="foot"><img src="../../public/brand/logo-horizontal.svg"><div style="text-align:right">Data via Dune · 6 Nov 2026 (UTC)<br>Not financial advice</div></div>
@@ -46,7 +46,7 @@ const OPS = [
 const dexOf = (i) => (i === 0 ? 0 : 1);
 const DEX = [{ name: "Aerodrome", w: meta.dexTot[0] }, { name: "Other DEXs", w: meta.dexTot.slice(1).reduce((a, b) => a + b, 0) }];
 const cv = document.getElementById("c"), ctx = cv.getContext("2d"), W = cv.width, H = cv.height;
-const X = [200, 470, 740], TOP = 192, BOTTOM = H - 62, GAP = 12;
+const X = [168, 494, 836], TOP = 192, BOTTOM = H - 62, GAP = 12;
 function layout(list, minH = 10) {
   const tot = list.reduce((a, b) => a + b.w, 0), free = BOTTOM - TOP - GAP * (list.length - 1);
   let y = TOP; list.forEach((n) => { n.h = Math.max(minH, (n.w / tot) * free); n.y = y; y += n.h + GAP; });
