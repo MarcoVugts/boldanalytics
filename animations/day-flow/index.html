@@ -110,10 +110,10 @@ function draw(now) {
   DEX.forEach((n) => { const txt = `${n.name} ${Math.round((n.w / total) * 100)}%`; ctx.font = "600 17px Geist"; const tw = ctx.measureText(txt).width + 14;
     ctx.fillStyle = "rgba(248,240,232,.92)"; ctx.fillRect(X[1] - tw / 2, n.y + Math.min(n.h / 2, 60) - 14, tw, 26);
     ctx.fillStyle = "#1e2a32"; ctx.textAlign = "center"; ctx.fillText(txt, X[1], n.y + Math.min(n.h / 2, 60) + 5); });
-  // small notice in the middle of the diagram at the open (14:30) and the close (21:00), ~2.5 s
+  // small notice above the diagram (centred) at the open (14:30) and the close (21:00), ~2.5 s
   const banner = (h0, text) => { const age = hNow - h0; if (age < 0 || age > 2.5) return;
     const a = Math.min(1, age / 0.15) * Math.min(1, (2.5 - age) / 0.4); ctx.globalAlpha = a;
-    ctx.font = "600 19px Geist"; const tw = ctx.measureText(text).width + 52, bx = W / 2 - tw / 2, by = (TOP + BOTTOM) / 2 - 20;
+    ctx.font = "600 19px Geist"; const tw = ctx.measureText(text).width + 52, bx = W / 2 - tw / 2, by = TOP - 96;
     ctx.fillStyle = "rgba(30,42,50,0.92)"; ctx.beginPath(); ctx.roundRect(bx, by, tw, 40, 20); ctx.fill();
     ctx.fillStyle = text.includes("opens") ? "#34a853" : "#a9a8a2"; ctx.beginPath(); ctx.arc(bx + 22, by + 20, 5.5, 0, 6.283); ctx.fill();
     ctx.fillStyle = "#f8f0e8"; ctx.textAlign = "left"; ctx.fillText(text, bx + 36, by + 27); ctx.globalAlpha = 1; };
