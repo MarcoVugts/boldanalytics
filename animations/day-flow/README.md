@@ -15,3 +15,8 @@ title and date in `index.html` are written for 6 Nov 2026.
 - `python3 build-charts-data.py dayflow-….json sides-….json` → `charts-data.js`
 - `charts.html?v=1` heatmap per hour · `?v=2` how a market maker trades · `?v=3` stock race (call `window.frame(0..1)` per
   video frame, same frame-capture approach as `render-frames.cjs`).
+
+## One dot per trade (trades.html)
+- `sql/dune/day_trades.sql`: one row per swap for one day (6 Nov: 272,679 trades, 6.0 MB, ~60 credits).
+- `python3 build-trades-data.py trades-….json` → `trades.js`, then render `trades.html?frames` like `index.html`
+  (point `render-frames.cjs` at `trades.html`; ~3 minutes for 900 frames).

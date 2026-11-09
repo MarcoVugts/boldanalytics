@@ -1,0 +1,137 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face{font-family:Montserrat;font-weight:800;src:url("../../node_modules/@fontsource/montserrat/files/montserrat-latin-800-normal.woff2")}
+@font-face{font-family:Geist;font-weight:400;src:url("../../node_modules/geist/dist/fonts/geist-sans/Geist-Regular.woff2")}
+@font-face{font-family:Geist;font-weight:600;src:url("../../node_modules/geist/dist/fonts/geist-sans/Geist-SemiBold.woff2")}
+*{box-sizing:border-box}
+body{margin:0;background:#f8f0e8;font-family:Geist,sans-serif;color:#1e2a32}
+.card{width:1080px;height:1080px;padding:60px 64px 40px;display:flex;flex-direction:column}
+h1{font:800 46px/1.12 Montserrat;margin:0;letter-spacing:-.01em}
+h1 span{display:block;color:#4b565d}
+.sub{font-size:20px;color:#79807f;margin-top:12px}
+.foot{margin-top:auto;border-top:1px solid #e8dfd2;padding-top:18px;display:flex;justify-content:space-between;align-items:center;font-size:17px;color:#79807f}
+.foot img{height:40px}
+#clock{position:absolute;right:0;top:-6px;text-align:right}
+#clock .t{font:800 64px/1 Montserrat}
+#clock .s{font:600 16px Geist;color:#79807f;margin-top:8px;display:inline-flex;align-items:center;gap:7px}
+#clock .s i{width:11px;height:11px;border-radius:50%;background:#a9a8a2;display:inline-block}
+#clock .s.open{color:#2f7d4f}
+#clock .s.open i{background:#34a853;box-shadow:0 0 0 4px rgba(52,168,83,.18)}
+#clock .m{font:600 14px Geist;color:#eb6834;margin-top:4px;height:18px}
+#clock .v{font:600 22px Geist;margin-top:4px}
+</style>
+<script src="trades.js"></script>
+</head><body>
+<div class="card">
+  <h1>Tokenized stocks on Base<span>The record day in motion</span></h1>
+  <div class="sub">Every on-chain DEX trade on 6 Nov · one dot = one trade, sized by volume</div>
+  <div style="position:relative;margin-top:22px">
+    <canvas id="c" width="952" height="748"></canvas>
+    <div id="clock"><div class="t">00:00</div><div class="s"><i></i><span>NYSE closed</span></div><div class="v">$0M traded</div></div>
+  </div>
+  <div class="foot"><img src="../../public/brand/logo-horizontal.svg"><div style="text-align:right">Data via Dune · 6 Nov 2026 (UTC)<br>Not financial advice</div></div>
+</div>
+<script>
+const T = window.TR, meta = T.meta, F = T.flat, NT = meta.n; // flat: s, op, dex, stock, usd per trade
+let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const usd = (v) => (v >= 1e6 ? `$${(v / 1e6).toFixed(v >= 1e8 ? 0 : 1)}M` : `$${Math.round(v / 1e3)}K`);
+const OPS = [
+  { name: "Wintermute (attr.)", color: "#4678ae" },
+  { name: "Unknown MM A", color: "#22426a" },
+  { name: "Unknown MM B", color: "#8aabd0" },
+  { name: "Apps & retail", color: "#eb6834" },
+];
+// DEX column: Aerodrome vs everything else (Uniswap, Curve, PancakeSwap, other)
+const dexOf = (i) => (i === 0 ? 0 : 1);
+const DEX = [{ name: "Aerodrome", w: meta.dexTot[0] }, { name: "Other DEXs", w: meta.dexTot.slice(1).reduce((a, b) => a + b, 0) }];
+const cv = document.getElementById("c"), ctx = cv.getContext("2d"), W = cv.width, H = cv.height;
+const X = [200, 470, 740], TOP = 192, BOTTOM = H - 62, GAP = 12;
+function layout(list, minH = 10) {
+  const tot = list.reduce((a, b) => a + b.w, 0), free = BOTTOM - TOP - GAP * (list.length - 1);
+  let y = TOP; list.forEach((n) => { n.h = Math.max(minH, (n.w / tot) * free); n.y = y; y += n.h + GAP; });
+  const over = y - GAP - BOTTOM; if (over > 0) { const big = list.reduce((a, b) => (b.h > a.h ? b : a)); big.h -= over; let yy = TOP; list.forEach((n) => { n.y = yy; yy += n.h + GAP; }); }
+}
+const colOps = OPS.map((o, i) => ({ ...o, w: meta.opTot[i] }));
+const colSym = meta.syms.map((s, i) => ({ name: s, w: meta.symTot[i] }));
+layout(colOps, 14); layout(DEX, 14); layout(colSym, 14);
+let maxV = 0; for (let i = 0; i < NT; i++) maxV = Math.max(maxV, F[i * 5 + 4]);
+const radius = (v) => 0.8 + 9 * Math.sqrt(v / maxV);
+const BUCKETS = 480; // 3-minute buckets in a day
+// Video time -> day hour.
+const SEG = [[0, 24, 1000]]; // [fromH, toH, ms per hour]: 1 day-hour per second
+const DUR = SEG.reduce((a, [f, t, ms]) => a + (t - f) * ms, 0);
+function dayHour(ms) { let left = ms; for (const [f, t, per] of SEG) { const len = (t - f) * per; if (left <= len) return { h: f + left / per, rate: 1000 / per }; left -= len; } return { h: 24, rate: 1 }; }
+let next = 0, traded = 0; let parts = [];
+const bez = (a, b, t) => { const mx = (a[0] + b[0]) / 2, u = 1 - t;
+  return [u * u * u * a[0] + 3 * u * u * t * mx + 3 * u * t * t * mx + t * t * t * b[0], u * u * u * a[1] + 3 * u * u * t * a[1] + 3 * u * t * t * b[1] + t * t * t * b[1]]; };
+const yIn = (n, r) => n.y + r + rnd() * Math.max(1, n.h - 2 * r);
+// Time-driven: draw(ms since start). Live: requestAnimationFrame. Video: ?frames, the recorder calls window.frame(ms).
+let last = 0;
+function draw(now) {
+  const dt = Math.min(100, now - last); last = now;
+  const { h: dh, rate } = dayHour(now);
+  const f = Math.min(1, dh / 24), upto = f * 86400; // seconds of the day
+  while (next < NT && F[next * 5] <= upto) {
+    const i5 = next * 5, o = F[i5 + 1], d = F[i5 + 2], s = F[i5 + 3], v = F[i5 + 4]; next++; traded += v; const r = radius(v);
+    const op = colOps[o], dx = DEX[d], st = colSym[s];
+    // Keep the dot's relative height through the DEX column, so the first leg runs almost straight
+    // and only the second leg bends towards the stock (like a Sankey), instead of zig-zagging.
+    const y0 = yIn(op, Math.min(r, op.h / 2));
+    const rel = (y0 - TOP) / (BOTTOM - TOP);
+    const y1 = Math.min(dx.y + dx.h - r, Math.max(dx.y + r, dx.y + rel * dx.h + (rnd() - 0.5) * 6));
+    parts.push({ c: op.color, r, p: [[X[0] + 8, y0], [X[1], y1], [X[2] - 8, yIn(st, Math.min(r, st.h / 2))]], t: 0, sp: 0.0075 + rnd() * 0.004 });
+  }
+  ctx.clearRect(0, 0, W, H);
+  const hNow = f * 24, openNow = hNow >= 14.5 && hNow < 21;
+
+  ctx.font = "600 17px Geist"; ctx.fillStyle = "#79807f";
+  ctx.textAlign = "right"; ctx.fillText("Operator", X[0] - 14, TOP - 22);
+  ctx.textAlign = "center"; ctx.fillText("DEX", X[1], TOP - 22);
+  ctx.textAlign = "left"; ctx.fillText("Stock", X[2] + 14, TOP - 22);
+  const total = meta.total;
+  // two lines when the block is tall enough, otherwise "name · share" on one line
+  const label = (txt, sub, x, y, align, h) => { ctx.textAlign = align;
+    if (h >= 36) { ctx.fillStyle = "#1e2a32"; ctx.font = "600 17px Geist"; ctx.fillText(txt, x, y - 2); ctx.fillStyle = "#79807f"; ctx.font = "15px Geist"; ctx.fillText(sub, x, y + 17); }
+    else { ctx.font = "600 16px Geist"; ctx.fillStyle = "#1e2a32"; const pct = sub.split(" · ")[1];
+      if (align === "right") { ctx.fillText(txt, x - ctx.measureText(" " + pct).width, y + 5); ctx.fillStyle = "#79807f"; ctx.fillText(" " + pct, x, y + 5); }
+      else { ctx.fillText(txt, x, y + 5); const w = ctx.measureText(txt + " ").width; ctx.fillStyle = "#79807f"; ctx.fillText(pct, x + w, y + 5); } } };
+  colOps.forEach((n) => { ctx.fillStyle = n.color; ctx.fillRect(X[0] - 5, n.y, 10, n.h); label(n.name, `${usd(n.w)} · ${Math.round((n.w / total) * 100)}%`, X[0] - 16, n.y + n.h / 2, "right", n.h); });
+  DEX.forEach((n) => { ctx.fillStyle = "#4b565d"; ctx.fillRect(X[1] - 5, n.y, 10, n.h); });
+  colSym.forEach((n) => { ctx.fillStyle = n.name === "Other" ? "#a9a8a2" : "#4b565d"; ctx.fillRect(X[2] - 5, n.y, 10, n.h); label(n.name === "Other" ? "Other stocks" : n.name, `${usd(n.w)} · ${Math.round((n.w / total) * 100)}%`, X[2] + 16, n.y + n.h / 2, "left", n.h); });
+  // tens of thousands of dots: move them, then draw one path per colour (big dots last, on top)
+  for (const p of parts) p.t += p.sp * (dt / 16.7) * rate;
+  parts = parts.filter((p) => p.t < 2);
+  ctx.globalAlpha = 0.62;
+  for (const big of [false, true]) for (const o of colOps) {
+    ctx.fillStyle = o.color; ctx.beginPath();
+    for (const p of parts) { if (p.c !== o.color || (p.r > 3) !== big) continue; const seg = p.t < 1 ? 0 : 1; const [x, y] = bez(p.p[seg], p.p[seg + 1], p.t - seg); ctx.moveTo(x + p.r, y); ctx.arc(x, y, p.r, 0, 6.283); }
+    ctx.fill(); }
+  ctx.globalAlpha = 1;
+  // DEX labels on top of the dots
+  DEX.forEach((n) => { const txt = `${n.name} ${Math.round((n.w / total) * 100)}%`; ctx.font = "600 17px Geist"; const tw = ctx.measureText(txt).width + 14;
+    ctx.fillStyle = "rgba(248,240,232,.92)"; ctx.fillRect(X[1] - tw / 2, n.y + Math.min(n.h / 2, 60) - 14, tw, 26);
+    ctx.fillStyle = "#1e2a32"; ctx.textAlign = "center"; ctx.fillText(txt, X[1], n.y + Math.min(n.h / 2, 60) + 5); });
+  // small notice above the diagram (centred) at the open (14:30) and the close (21:00), ~2.5 s
+  const banner = (h0, text) => { const age = hNow - h0; if (age < 0 || age > 2.5) return;
+    const a = Math.min(1, age / 0.15) * Math.min(1, (2.5 - age) / 0.4); ctx.globalAlpha = a;
+    ctx.font = "600 19px Geist"; const tw = ctx.measureText(text).width + 52, bx = W / 2 - tw / 2, by = TOP - 96;
+    ctx.fillStyle = "rgba(30,42,50,0.92)"; ctx.beginPath(); ctx.roundRect(bx, by, tw, 40, 20); ctx.fill();
+    ctx.fillStyle = text.includes("opens") ? "#34a853" : "#a9a8a2"; ctx.beginPath(); ctx.arc(bx + 22, by + 20, 5.5, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#f8f0e8"; ctx.textAlign = "left"; ctx.fillText(text, bx + 36, by + 27); ctx.globalAlpha = 1; };
+  banner(14.5, "NYSE opens · 14:30 UTC"); banner(21, "NYSE closes · 21:00 UTC");
+  // dot size legend
+  ctx.textAlign = "left"; ctx.fillStyle = "#79807f"; ctx.font = "15px Geist"; ctx.fillText("One dot = one trade:", 0, H - 16);
+  let lx = 150; [1e3, 10e3, 90e3].forEach((v) => { const r = radius(v); ctx.fillStyle = "#4b565d"; ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.arc(lx + r, H - 21, r, 0, 6.283); ctx.fill(); ctx.globalAlpha = 1;
+    ctx.fillStyle = "#79807f"; ctx.fillText(usd(v), lx + 2 * r + 6, H - 16); lx += 2 * r + 70; });
+  const mins = Math.floor(f * 1440), h = mins / 60;
+  const ck = document.getElementById("clock");
+  ck.querySelector(".t").textContent = f >= 1 ? "24:00" : `${String(Math.floor(h)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
+  const st = ck.querySelector(".s"); st.classList.toggle("open", openNow); st.querySelector("span").textContent = openNow ? "NYSE open" : "NYSE closed";
+
+  ck.querySelector(".v").textContent = `${usd(traded)} · ${next.toLocaleString("en-US")} trades`;
+  window.done = !(f < 1 || parts.length);
+}
+if (new URLSearchParams(location.search).has("frames")) window.frame = draw;
+else { const t0 = performance.now(); const loop = (ts) => { draw(ts - t0); if (!window.done) requestAnimationFrame(loop); }; requestAnimationFrame(loop); }
+</script></body></html>
