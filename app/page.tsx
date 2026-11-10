@@ -4,7 +4,7 @@ import Link from "next/link";
 const STATS = [
   { value: "5+", label: "years in onchain data" },
   { value: "100K+", label: "views on a Dune dashboard" },
-  { value: "7", label: "web3 teams worked with" },
+  { value: "8", label: "web3 teams worked with" },
 ];
 
 const SERVICES = [
@@ -31,6 +31,7 @@ const CLIENTS: Client[] = [
   { name: "Layer3", word: ["layer3.svg", 4752 / 792, 21], work: "Quest dashboards" },
   { name: "Spindl", word: ["spindl.svg", 2668 / 768, 28], work: "Attribution and churn" },
   { name: "Biconomy", word: ["biconomy.svg", 4284 / 846, 23], work: "Multichain transactions" },
+  { name: "ZK Nation", word: ["zknation.svg", 5112 / 817, 21], work: "Governance overview" },
   { name: "Tally", word: ["tally.svg", 2124 / 782, 26], work: "Governance analytics" },
   { name: "Protocolink", word: ["protocolink.svg", 4418 / 768, 21], work: "MEV: top trades" },
   { name: "Abstract", word: ["abstract.svg", 5995 / 850, 19], work: "Chain analytics" },
@@ -120,10 +121,6 @@ export default function Home() {
               <div className="mt-1 text-xs text-ink-3 sm:text-sm">{c.work}</div>
             </li>
           ))}
-          <li className="flex flex-col justify-center bg-surface-1 p-4 sm:p-5">
-            <span className="font-brand text-base font-bold tracking-tight text-ink-3 sm:text-lg">Your team next?</span>
-            <span className="mt-1 text-xs text-ink-3 sm:text-sm">Get in touch</span>
-          </li>
         </ul>
       </section>
     </div>
