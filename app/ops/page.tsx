@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Stat } from "@/components/Stat";
 import { OpsExport } from "@/components/OpsExport";
 import { bytes, int, num } from "@/lib/format";
@@ -69,8 +70,9 @@ export default async function Ops() {
         <p className="mt-1 text-sm text-ink-2">
           Every Dune execution the loader made. Execution credits come from Dune; export credits are estimated from result size (Analyst: 10 credits per MB).
         </p>
-        <div className="mt-3">
+        <div className="mt-3 flex flex-wrap items-center gap-3">
           <OpsExport />
+          <Link href="/beheer" className="rounded-md border border-border px-3 py-1.5 text-sm text-ink-2 hover:bg-surface-1 hover:text-ink">Bezoekers →</Link>
         </div>
       </header>
 
