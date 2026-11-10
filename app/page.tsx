@@ -28,12 +28,12 @@ const SERVICES = [
 type Client = { name: string; work: string; mark?: string; word?: [string, number, number] };
 const CLIENTS: Client[] = [
   { name: "OpenSea", mark: "opensea.svg", work: "User segmentation" },
-  { name: "Layer3", word: ["layer3.svg", 4752 / 792, 17], work: "Quest dashboards" },
-  { name: "Spindl", word: ["spindl.svg", 2668 / 768, 26], work: "User retention and ROAS" },
-  { name: "Biconomy", word: ["biconomy.svg", 4284 / 846, 24], work: "Multichain transactions" },
+  { name: "Layer3", word: ["layer3.svg", 4752 / 792, 21], work: "Quest dashboards" },
+  { name: "Spindl", word: ["spindl.svg", 2668 / 768, 28], work: "Attribution and churn" },
+  { name: "Biconomy", word: ["biconomy.svg", 4284 / 846, 23], work: "Multichain transactions" },
   { name: "Tally", word: ["tally.svg", 2124 / 782, 26], work: "Governance analytics" },
-  { name: "Protocolink", word: ["protocolink.svg", 4418 / 768, 22], work: "MEV: top trades" },
-  { name: "Abstract", word: ["abstract.svg", 5995 / 850, 21], work: "Chain analytics" },
+  { name: "Protocolink", word: ["protocolink.svg", 4418 / 768, 21], work: "MEV: top trades" },
+  { name: "Abstract", word: ["abstract.svg", 5995 / 850, 19], work: "Chain analytics" },
 ];
 
 const maskStyle = (file: string) => {
