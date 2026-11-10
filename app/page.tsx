@@ -3,8 +3,8 @@ import Link from "next/link";
 
 const STATS = [
   { value: "5+", label: "years in onchain data" },
-  { value: "100K+", label: "views on our Dune dashboards" },
-  { value: "8", label: "web3 teams worked with" },
+  { value: "125+", label: "dashboards built on Dune" },
+  { value: "150K+", label: "views on our Dune dashboards" },
 ];
 
 const SERVICES = [
