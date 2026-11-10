@@ -4,6 +4,8 @@ import { Geist, Geist_Mono, Montserrat } from "next/font/google";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NavLink } from "@/components/NavLink";
+import { Tracker } from "@/components/Tracker";
+import { Suspense } from "react";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -44,6 +46,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <a href="https://dune.com" className="underline hover:text-ink-2">Dune</a>. All times UTC.
           </div>
         </footer>
+        {/* visitor counts for /beheer (lib/tracking.ts); usePathname needs a Suspense boundary with cacheComponents */}
+        <Suspense>
+          <Tracker />
+        </Suspense>
       </body>
     </html>
   );
