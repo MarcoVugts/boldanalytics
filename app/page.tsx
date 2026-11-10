@@ -33,7 +33,7 @@ const CLIENTS: Client[] = [
   { name: "Biconomy", word: ["biconomy.png", 715 / 141, 24], work: "Multichain transactions" },
   { name: "Tally", word: ["tally.png", 195 / 73, 26], work: "Governance analytics" },
   { name: "Protocolink", word: ["protocolink.png", 553 / 96, 22], work: "MEV: top trades" },
-  { name: "Abstract", mark: "abstract.svg", work: "Chain analytics" },
+  { name: "Abstract", word: ["abstract.png", 1199 / 170, 21], work: "Chain analytics" },
 ];
 
 const maskStyle = (file: string) => {
