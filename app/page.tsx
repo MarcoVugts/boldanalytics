@@ -22,6 +22,14 @@ const SERVICES = [
   },
 ];
 
+const R = "/stories/record-day";
+// Hero row: three visuals from the latest data story (square, 600px). Video is a short muted loop (~2MB).
+const VISUALS = [
+  { video: `${R}/hero-loop.mp4`, img: `${R}/hero-loop-poster.jpg`, caption: "Every trade of a $150M day, one dot each" },
+  { img: `${R}/trading-never-sleeps-600.jpg`, caption: "Trading never sleeps: volume per hour by operator" },
+  { img: `${R}/how-a-market-maker-trades-600.jpg`, caption: "How a market maker trades: $5.5M, never more than $5K held" },
+];
+
 // Ordered: active teams first, sunset projects after, Abstract last. Logos are monochrome masks in public/clients
 // (CSS mask, so they take the text colour in light and dark mode). `mark` = icon only, shown with the name next to it;
 // `word` = full wordmark [file, width/height ratio, height in px to balance visual weight].
@@ -59,6 +67,19 @@ export default function Home() {
         </div>
       </section>
 
+      <section aria-label="Recent visualizations" className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:px-0 sm:pb-0">
+        {VISUALS.map((v) => (
+          <Link key={v.img} href="/stories/tokenized-stocks" className="group w-[78%] shrink-0 snap-start overflow-hidden rounded-lg border border-border bg-surface-1 sm:w-auto">
+            {v.video ? (
+              <video className="block aspect-square w-full bg-[#f8f0e8]" src={v.video} poster={v.img} autoPlay muted loop playsInline preload="metadata" aria-label={v.caption} />
+            ) : (
+              <img className="block aspect-square w-full bg-[#f8f0e8]" src={v.img} alt={v.caption} loading="lazy" />
+            )}
+            <div className="px-3 py-2 text-xs text-ink-3 group-hover:text-ink-2">{v.caption}</div>
+          </Link>
+        ))}
+      </section>
+
       <section className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-border bg-border">
         {STATS.map((s) => (
           <div key={s.label} className="bg-surface-1 p-4 sm:p-5">
@@ -87,7 +108,7 @@ export default function Home() {
       <section id="work" className="scroll-mt-24 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">Latest work</h2>
         <Link href="/stories/tokenized-stocks" className="group grid overflow-hidden rounded-lg border border-border bg-surface-1 md:grid-cols-2">
-          <img src="/stories/record-day/day-in-motion-poster.jpg" alt="Every tokenized-stock trade on Base on one day, one dot per trade" className="block w-full bg-[#f8f0e8]" />
+          <img src="/stories/record-day/stock-race-poster.jpg" alt="Cumulative volume per tokenized stock through the record day" className="block w-full bg-[#f8f0e8]" />
           <div className="flex flex-col justify-center gap-3 p-6">
             <div className="text-xs font-medium uppercase tracking-wider text-ink-3">Data story</div>
             <h3 className="text-xl font-bold tracking-tight">Tokenized stocks on Base</h3>
