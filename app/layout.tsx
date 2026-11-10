@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Geist, Geist_Mono, Montserrat } from "next/font/google";
-import { Logo } from "@/components/Logo";
+import { Logo, LogoMark } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NavLink } from "@/components/NavLink";
 import { Tracker } from "@/components/Tracker";
@@ -31,15 +31,18 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="min-h-full flex flex-col">
         <header className="sticky top-0 z-40 border-b border-border bg-surface-0/85 backdrop-blur supports-[backdrop-filter]:bg-surface-0/75">
-          <nav className="mx-auto flex h-16 max-w-6xl items-center gap-5 px-4 sm:gap-8">
-            <Link href="/" aria-label="Bold Analytics home" className="flex items-center"><Logo height={30} /></Link>
+          <nav className="mx-auto flex h-14 max-w-6xl sm:h-16 items-center gap-5 px-4 sm:gap-8">
+            <Link href="/" aria-label="Bold Analytics home" className="flex items-center">
+              <span className="flex sm:hidden"><LogoMark height={30} /></span>
+              <span className="hidden sm:flex"><Logo height={30} /></span>
+            </Link>
             <div className="flex h-full items-stretch gap-6">
               <NavLink href="/stories/tokenized-stocks" match="/stories">Data stories</NavLink>
             </div>
             <ThemeToggle />
           </nav>
         </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-5 sm:py-8">{children}</main>
         <footer className="border-t border-border">
           <div className="mx-auto max-w-6xl px-4 py-6 text-xs text-ink-3">
             For informational purposes only, not financial advice. Data via{" "}

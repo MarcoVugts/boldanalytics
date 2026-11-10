@@ -13,3 +13,14 @@ export function Logo({ height = 28, forceLight = false }: { height?: number; for
     </>
   );
 }
+
+/** Icon only (the cube), same theme switching. Used in the header on small screens. */
+export function LogoMark({ height = 28 }: { height?: number }) {
+  const props = { height, width: height, style: { height, width: "auto" } };
+  return (
+    <>
+      <img className="logo-light" src="/brand/icon.svg" alt="Bold Analytics" {...props} />
+      <img className="logo-dark" src="/brand/icon-on-dark.svg" alt="Bold Analytics" {...props} />
+    </>
+  );
+}

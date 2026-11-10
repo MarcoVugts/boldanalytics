@@ -44,17 +44,17 @@ const maskStyle = (file: string) => {
 
 export default function Home() {
   return (
-    <div className="space-y-14 py-6 sm:space-y-20 sm:py-12">
-      <section className="max-w-3xl space-y-6">
+    <div className="space-y-10 pb-6 pt-1 sm:space-y-20 sm:py-12">
+      <section className="max-w-3xl space-y-4 sm:space-y-6">
         <h1 className="font-brand text-4xl font-extrabold tracking-tight sm:text-5xl">Onchain data, made visible.</h1>
-        <p className="text-lg text-ink-2">
+        <p className="text-base text-ink-2 sm:text-lg">
           Dashboards, visualizations and reports that make an impact. Built on onchain data, made for the people who need to
           understand it.
         </p>
         <div className="flex flex-wrap gap-3">
           <a href="#work" className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-surface-1 hover:opacity-90">See our work</a>
           <Link href="/stories/tokenized-stocks" className="rounded-md border border-border px-4 py-2 text-sm font-medium text-ink-2 hover:bg-surface-1 hover:text-ink">
-            Data story: Tokenized Stocks →
+            <span className="hidden sm:inline">Data story: </span>Tokenized Stocks →
           </Link>
         </div>
       </section>
