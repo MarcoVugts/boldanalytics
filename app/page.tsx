@@ -22,17 +22,24 @@ const SERVICES = [
   },
 ];
 
-// Ordered: active teams first, sunset projects after, Abstract last. Logo = monochrome mark in public/clients
-// (shown with a CSS mask so it takes the text colour in light and dark mode); without one, just the name.
-const CLIENTS: { name: string; logo?: string; work: string }[] = [
-  { name: "OpenSea", logo: "opensea", work: "User segmentation" },
-  { name: "Layer3", work: "Quest dashboards" },
-  { name: "Spindl", work: "User retention and ROAS" },
-  { name: "Biconomy", work: "Multichain transactions" },
-  { name: "Tally", work: "Governance analytics" },
-  { name: "Protocolink", work: "MEV: top trades" },
-  { name: "Abstract", logo: "abstract", work: "Chain analytics" },
+// Ordered: active teams first, sunset projects after, Abstract last. Logos are monochrome masks in public/clients
+// (CSS mask, so they take the text colour in light and dark mode). `mark` = icon only, shown with the name next to it;
+// `word` = full wordmark [file, width/height ratio, height in px to balance visual weight].
+type Client = { name: string; work: string; mark?: string; word?: [string, number, number] };
+const CLIENTS: Client[] = [
+  { name: "OpenSea", mark: "opensea.svg", work: "User segmentation" },
+  { name: "Layer3", word: ["layer3.png", 396 / 66, 17], work: "Quest dashboards" },
+  { name: "Spindl", word: ["spindl.png", 92 / 28, 26], work: "User retention and ROAS" },
+  { name: "Biconomy", word: ["biconomy.png", 715 / 141, 24], work: "Multichain transactions" },
+  { name: "Tally", word: ["tally.png", 195 / 73, 26], work: "Governance analytics" },
+  { name: "Protocolink", word: ["protocolink.png", 553 / 96, 22], work: "MEV: top trades" },
+  { name: "Abstract", mark: "abstract.svg", work: "Chain analytics" },
 ];
+
+const maskStyle = (file: string) => {
+  const m = `url(/clients/${file}) left center/contain no-repeat`;
+  return { mask: m, WebkitMask: m };
+};
 
 export default function Home() {
   return (
@@ -101,20 +108,20 @@ export default function Home() {
           {CLIENTS.map((c) => (
             <li key={c.name} className="bg-surface-1 p-4 sm:p-5">
               <div className="flex h-8 items-center gap-2 text-ink">
-                {c.logo && (
-                  <span
-                    aria-hidden
-                    className="inline-block size-6 shrink-0 bg-current"
-                    style={{ mask: `url(/clients/${c.logo}.svg) center/contain no-repeat`, WebkitMask: `url(/clients/${c.logo}.svg) center/contain no-repeat` }}
-                  />
+                {c.word ? (
+                  <span role="img" aria-label={c.name} className="block max-w-full bg-current" style={{ height: c.word[2], aspectRatio: c.word[1], ...maskStyle(c.word[0]) }} />
+                ) : (
+                  <>
+                    {c.mark && <span aria-hidden className="inline-block size-6 shrink-0 bg-current" style={maskStyle(c.mark)} />}
+                    <span className="font-brand text-lg font-bold tracking-tight">{c.name}</span>
+                  </>
                 )}
-                <span className="font-brand text-lg font-bold tracking-tight">{c.name}</span>
               </div>
               <div className="mt-1 text-xs text-ink-3 sm:text-sm">{c.work}</div>
             </li>
           ))}
           <li className="flex flex-col justify-center bg-surface-1 p-4 sm:p-5">
-            <span className="font-brand text-lg font-bold tracking-tight text-ink-3">Your team next?</span>
+            <span className="font-brand text-base font-bold tracking-tight text-ink-3 sm:text-lg">Your team next?</span>
             <span className="mt-1 text-xs text-ink-3 sm:text-sm">Get in touch</span>
           </li>
         </ul>
