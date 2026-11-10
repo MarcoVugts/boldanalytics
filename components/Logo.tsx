@@ -14,13 +14,13 @@ export function Logo({ height = 28, forceLight = false }: { height?: number; for
   );
 }
 
-/** Icon only (the cube), same theme switching. Used in the header on small screens. */
-export function LogoMark({ height = 28 }: { height?: number }) {
-  const props = { height, width: height, style: { height, width: "auto" } };
+/** Stacked logo (icon + "BOLD / ANALYTICS" on two lines), same theme switching. Used in the header on small screens. */
+export function LogoStacked({ height = 38 }: { height?: number }) {
+  const props = { height, width: Math.round((height * 615.42) / 200), style: { height, width: "auto" } };
   return (
     <>
-      <img className="logo-light" src="/brand/icon.svg" alt="Bold Analytics" {...props} />
-      <img className="logo-dark" src="/brand/icon-on-dark.svg" alt="Bold Analytics" {...props} />
+      <img className="logo-light" src="/brand/logo-stacked.svg" alt="Bold Analytics" {...props} />
+      <img className="logo-dark" src="/brand/logo-stacked-on-dark.svg" alt="Bold Analytics" {...props} />
     </>
   );
 }
