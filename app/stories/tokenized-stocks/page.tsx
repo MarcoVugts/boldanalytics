@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { BarChart } from "@/components/BarChart";
 import { Stat } from "@/components/Stat";
 import { ShareCard } from "@/components/ShareCard";
+import { RecordDay } from "@/components/RecordDay";
 import { int, num, usd } from "@/lib/format";
 import { getByDex, getByEntryContract, getByToken, getDaily, getOverview, type GroupRow } from "@/lib/queries/trades";
 import { FlowSankey } from "@/components/FlowSankey";
@@ -58,6 +59,8 @@ export default async function TokenizedStocks() {
               <BarChart unit="count" label="Daily active wallets" data={daily.map((d) => ({ x: d.day, y: d.wallets }))} />
             </ShareCard>
           </div>
+
+          <RecordDay />
 
           <ShareCard slug="who-are-the-traders" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Who are the traders?" sub="Wallets bucketed per day by how much they traded, how often, and how many different stocks.">
             <SegmentChart rows={segments} />
