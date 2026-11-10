@@ -2,9 +2,8 @@
 import Link from "next/link";
 
 const STATS = [
+  { value: "5+", label: "years in onchain data" },
   { value: "100K+", label: "views on a Dune dashboard" },
-  { value: "$5B+", label: "tokenized-stock volume tracked" },
-  { value: "272,679", label: "trades in one animation" },
   { value: "7", label: "web3 teams worked with" },
 ];
 
@@ -23,20 +22,21 @@ const SERVICES = [
   },
 ];
 
-// Ordered: active teams first, sunset projects after, Abstract last.
-const CLIENTS = [
-  { name: "OpenSea", work: "User segmentation" },
+// Ordered: active teams first, sunset projects after, Abstract last. Logo = monochrome mark in public/clients
+// (shown with a CSS mask so it takes the text colour in light and dark mode); without one, just the name.
+const CLIENTS: { name: string; logo?: string; work: string }[] = [
+  { name: "OpenSea", logo: "opensea", work: "User segmentation" },
   { name: "Layer3", work: "Quest dashboards" },
-  { name: "Spindl", note: "acquired by Coinbase", work: "User retention and impact numbers (ROAS)" },
-  { name: "Biconomy", work: "Multichain transaction tracking" },
-  { name: "Tally", note: "sunset", work: "Governance analytics" },
-  { name: "Protocolink", note: "sunset", work: "MEV: the most profitable trades" },
-  { name: "Abstract", note: "sunsetting", work: "Chain analytics" },
+  { name: "Spindl", work: "User retention and ROAS" },
+  { name: "Biconomy", work: "Multichain transactions" },
+  { name: "Tally", work: "Governance analytics" },
+  { name: "Protocolink", work: "MEV: top trades" },
+  { name: "Abstract", logo: "abstract", work: "Chain analytics" },
 ];
 
 export default function Home() {
   return (
-    <div className="space-y-20 py-8 sm:py-12">
+    <div className="space-y-14 py-6 sm:space-y-20 sm:py-12">
       <section className="max-w-3xl space-y-6">
         <h1 className="font-brand text-4xl font-extrabold tracking-tight sm:text-5xl">Onchain data, made visible.</h1>
         <p className="text-lg text-ink-2">
@@ -51,11 +51,11 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-4">
+      <section className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-border bg-border">
         {STATS.map((s) => (
-          <div key={s.label} className="bg-surface-1 p-5">
-            <div className="font-brand text-3xl font-extrabold tabular-nums">{s.value}</div>
-            <div className="mt-1 text-sm text-ink-3">{s.label}</div>
+          <div key={s.label} className="bg-surface-1 p-4 sm:p-5">
+            <div className="font-brand text-2xl font-extrabold tabular-nums sm:text-3xl">{s.value}</div>
+            <div className="mt-1 text-xs text-ink-3 sm:text-sm">{s.label}</div>
           </div>
         ))}
       </section>
@@ -64,9 +64,8 @@ export default function Home() {
         <h2 className="text-2xl font-bold tracking-tight">What we build</h2>
         <div className="grid gap-4 md:grid-cols-3">
           {SERVICES.map((s, i) => (
-            <div key={s.title} className="rounded-lg border border-border bg-surface-1 p-5">
-              <div className="text-xs font-medium text-ink-3">0{i + 1}</div>
-              <h3 className="mt-2 text-lg font-semibold">{s.title}</h3>
+            <div key={s.title} className="rounded-lg border border-border bg-surface-1 p-4 sm:p-5">
+              <h3 className="text-lg font-semibold"><span className="mr-2 text-xs font-medium text-ink-3">0{i + 1}</span>{s.title}</h3>
               <p className="mt-2 text-sm text-ink-2">{s.text}</p>
             </div>
           ))}
@@ -98,19 +97,25 @@ export default function Home() {
           <h2 className="text-2xl font-bold tracking-tight">Teams we worked with</h2>
           <p className="mt-1 text-sm text-ink-3">Dashboards and analysis built for:</p>
         </div>
-        <ul className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
+        <ul className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border lg:grid-cols-4">
           {CLIENTS.map((c) => (
-            <li key={c.name} className="bg-surface-1 p-5">
-              <div className="flex flex-wrap items-baseline gap-x-2">
-                <span className="text-lg font-semibold">{c.name}</span>
-                {c.note && <span className="text-xs text-ink-3">{c.note}</span>}
+            <li key={c.name} className="bg-surface-1 p-4 sm:p-5">
+              <div className="flex h-8 items-center gap-2 text-ink">
+                {c.logo && (
+                  <span
+                    aria-hidden
+                    className="inline-block size-6 shrink-0 bg-current"
+                    style={{ mask: `url(/clients/${c.logo}.svg) center/contain no-repeat`, WebkitMask: `url(/clients/${c.logo}.svg) center/contain no-repeat` }}
+                  />
+                )}
+                <span className="font-brand text-lg font-bold tracking-tight">{c.name}</span>
               </div>
-              <div className="mt-1 text-sm text-ink-2">{c.work}</div>
+              <div className="mt-1 text-xs text-ink-3 sm:text-sm">{c.work}</div>
             </li>
           ))}
-          <li className="flex flex-col justify-center bg-surface-1 p-5">
-            <span className="text-lg font-semibold text-ink-3">Your team next?</span>
-            <span className="mt-1 text-sm text-ink-3">Get in touch</span>
+          <li className="flex flex-col justify-center bg-surface-1 p-4 sm:p-5">
+            <span className="font-brand text-lg font-bold tracking-tight text-ink-3">Your team next?</span>
+            <span className="mt-1 text-xs text-ink-3 sm:text-sm">Get in touch</span>
           </li>
         </ul>
       </section>
