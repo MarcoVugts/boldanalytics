@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
+import { DashboardArt, ReportArt, VisualizationArt } from "@/components/ServiceArt";
 
 const STATS = [
   { value: "5+", label: "years in onchain data" },
@@ -10,24 +11,27 @@ const STATS = [
 const SERVICES = [
   {
     title: "Custom dashboards",
-    text: "Your own dashboard on your own site: public for your community or private for your team, updated automatically from onchain data.",
+    text: "Live dashboards, hosted by us. Public for your community or private behind a login for your team, always up to date.",
+    Art: DashboardArt,
   },
   {
     title: "Visualizations",
-    text: "Charts and animations people actually share: flows, networks, a whole trading day in thirty seconds.",
+    text: "Charts and animations made to be shared: flows, networks and timelines that tell the story at a glance.",
+    Art: VisualizationArt,
   },
   {
     title: "Reports",
-    text: "Deep dives that answer one question well: who trades, who stays, who the market makers are, and what it means for you.",
+    text: "Deep dives that answer one question well: who your users are, where they come from, who stays and why.",
+    Art: ReportArt,
   },
 ];
 
 const R = "/stories/record-day";
 // Hero row: three visuals from the latest data story (square, 600px). Video is a short muted loop (~2MB).
 const VISUALS = [
-  { video: `${R}/hero-loop.mp4`, img: `${R}/hero-loop-poster.jpg`, caption: "Every trade of a $150M day, one dot each" },
-  { img: `${R}/trading-never-sleeps-600.jpg`, caption: "Trading never sleeps: volume per hour by operator" },
-  { img: `${R}/how-a-market-maker-trades-600.jpg`, caption: "How a market maker trades: $5.5M, never more than $5K held" },
+  { video: `${R}/hero-loop.mp4`, img: `${R}/hero-loop-poster.jpg`, caption: "Every trade of a day, one dot each" },
+  { img: `${R}/trading-never-sleeps-600.jpg`, caption: "Activity per hour, around the clock" },
+  { img: `${R}/how-a-market-maker-trades-600.jpg`, caption: "One wallet\u2019s behaviour, trade by trade" },
 ];
 
 // Ordered: active teams first, sunset projects after, Abstract last. Logos are monochrome masks in public/clients
@@ -91,11 +95,16 @@ export default function Home() {
 
       <section className="space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">What we build</h2>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-1 md:mx-0 md:grid md:grid-cols-3 md:gap-4 md:overflow-visible md:px-0 md:pb-0">
           {SERVICES.map((s, i) => (
-            <div key={s.title} className="rounded-lg border border-border bg-surface-1 p-4 sm:p-5">
-              <h3 className="text-lg font-semibold"><span className="mr-2 text-xs font-medium text-ink-3">0{i + 1}</span>{s.title}</h3>
-              <p className="mt-2 text-sm text-ink-2">{s.text}</p>
+            <div key={s.title} className="w-[80%] shrink-0 snap-start overflow-hidden rounded-lg border border-border bg-surface-1 md:w-auto">
+              <div className="aspect-[16/10] border-b border-border">
+                <s.Art />
+              </div>
+              <div className="p-4 sm:p-5">
+                <h3 className="text-lg font-semibold"><span className="mr-2 text-xs font-medium text-ink-3">0{i + 1}</span>{s.title}</h3>
+                <p className="mt-2 text-sm text-ink-2">{s.text}</p>
+              </div>
             </div>
           ))}
         </div>
