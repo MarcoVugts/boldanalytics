@@ -75,8 +75,8 @@ export default async function Overview() {
         </section>
       )}
 
-      <ShareCard slug="daily-dex-volume" exportSub="USD, all tokens" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Daily DEX volume" sub={milestoneSub(daily)}>
-        <VolumeChart {...stackDays(daily, byToken)} markMax="record day" />
+      <ShareCard slug="daily-dex-volume" exportSub="USD, all tokens" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="DEX volume" sub={milestoneSub(daily)}>
+        <VolumeChart {...stackDays(daily, byToken)} />
       </ShareCard>
 
       <section className="space-y-3">

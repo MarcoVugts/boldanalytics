@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import { BarChart } from "@/components/BarChart";
 import { ShareCard } from "@/components/ShareCard";
 import { int, usd } from "@/lib/format";
 import { getByDex, getByToken, getDaily, getDailyByToken, getOverview } from "@/lib/queries/trades";
-import { GroupTable, TokenBars, milestoneSub, stackDays, weekly } from "../shared";
+import { GroupTable, TokenBars, milestoneSub, stackDays } from "../shared";
 import { VolumeChart } from "@/components/dashboard/VolumeChart";
 
 export const metadata: Metadata = { title: "Volume · Tokenized Stocks on Base" };
@@ -14,22 +13,18 @@ export default async function Volume() {
   const range = { asOf: overview.last_day ?? undefined, from: overview.first_day ?? undefined };
   return (
     <div className="space-y-6">
-      <ShareCard slug="daily-dex-volume" exportSub="USD, all tokens" {...range} title="Daily DEX volume" sub={milestoneSub(daily)}>
-        <VolumeChart {...stackDays(daily, byToken)} markMax="record day" />
+      <ShareCard slug="daily-dex-volume" exportSub="USD, all tokens" {...range} title="DEX volume" sub={milestoneSub(daily)}>
+        <VolumeChart {...stackDays(daily, byToken)} />
       </ShareCard>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <ShareCard slug="weekly-dex-volume" {...range} title="Weekly DEX volume" sub="USD per week (Monday start); the first and last week can be partial">
-          <BarChart unit="usd" label="Weekly DEX volume in USD" data={weekly(daily)} />
-        </ShareCard>
         <ShareCard slug="volume-by-stock" exportZoom={1} {...range} title="Volume by stock" sub="Top 10 across all loaded days; a stock-to-stock swap counts on both stocks">
           <TokenBars rows={tokens} />
         </ShareCard>
+        <ShareCard slug="by-dex" {...range} title="By DEX" sub="Where the swap executed (venues grouped, e.g. all Aerodrome pool types)">
+          <GroupTable rows={dexes} label="DEX" />
+        </ShareCard>
       </div>
-
-      <ShareCard slug="by-dex" {...range} title="By DEX" sub="Where the swap executed (venues grouped, e.g. all Aerodrome pool types)">
-        <GroupTable rows={dexes} label="DEX" />
-      </ShareCard>
 
       <details className="rounded-lg border border-border bg-surface-1 p-4 text-sm">
         <summary className="cursor-pointer text-ink-2">Daily data table</summary>

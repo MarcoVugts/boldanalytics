@@ -28,19 +28,28 @@ export function BarChart({
   label,
   markMax,
   series,
+  height,
+  tickLabel = (x: string) => x.slice(5),
+  longLabel,
 }: {
   data: Point[];
   unit: "usd" | "count";
   label: string;
   /** Stack each bar by these series (bottom → top), using Point.parts. */
   series?: Series[];
+  /** Chart height in px (default 220). */
+  height?: number;
+  /** x-axis tick text (default: MM-DD from YYYY-MM-DD). */
+  tickLabel?: (x: string) => string;
+  /** Full label for tooltip and annotation (default: date + UTC). */
+  longLabel?: (x: string) => string;
   /** Annotate the highest bar with its value and an arrow (e.g. "record day") */
   markMax?: string;
 }) {
   const format = unit === "usd" ? usd : num;
   const exp = useExport();
   // Portrait image export: a taller chart, like the phone layout.
-  const HEIGHT = exp.exporting && exp.format === "portrait" ? 330 : BASE_HEIGHT;
+  const HEIGHT = exp.exporting && exp.format === "portrait" ? 330 : height ?? BASE_HEIGHT;
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(640);
   const [hover, setHover] = useState<number | null>(null);
@@ -70,13 +79,15 @@ export function BarChart({
   const maxI = data.findIndex((d) => d.y === maxY);
   const slot = innerW / data.length;
   const gap = slot > 6 ? 2 : 0;
-  const barW = Math.max(1, slot - gap);
+  // few bars (e.g. months): cap the width so a bar never becomes a block, centred in its slot
+  const barW = Math.min(120, Math.max(1, slot - gap));
+  const inset = (slot - gap - barW) / 2;
   const y = (v: number) => top0 + innerH - (v / yMax) * innerH;
-  const labelEvery = Math.max(1, Math.ceil(data.length / Math.max(2, Math.floor(innerW / 70))));
+  const labelEvery = Math.max(1, Math.ceil(data.length / Math.max(2, Math.floor(innerW / 54))));
   const h = hover !== null ? data[hover] : null;
 
   return (
-    <div ref={ref} className="relative w-full min-w-0 overflow-hidden" onMouseLeave={() => setHover(null)}>
+    <div ref={ref} className="relative w-full min-w-0" onMouseLeave={() => setHover(null)}>
       <svg width={width} height={H} role="img" aria-label={label} className="block">
         {ticks.map((t) => (
           <g key={t}>
@@ -87,7 +98,7 @@ export function BarChart({
           </g>
         ))}
         {data.map((d, i) => {
-          const x = M.left + i * slot + gap / 2;
+          const x = M.left + i * slot + gap / 2 + inset;
           const top = y(d.y);
           const hgt = Math.max(0, top0 + innerH - top);
           const r = Math.min(4, barW / 2, hgt);
@@ -124,7 +135,7 @@ export function BarChart({
               <rect x={M.left + i * slot} y={top0} width={slot} height={innerH} fill="transparent" onMouseEnter={() => setHover(i)} />
               {i % labelEvery === 0 && (
                 <text x={x + barW / 2} y={H - 6} textAnchor="middle" fontSize={11} fill="var(--text-muted)">
-                  {d.x.slice(5)}
+                  {tickLabel(d.x)}
                 </text>
               )}
             </g>
@@ -152,7 +163,7 @@ export function BarChart({
                 {format(maxY)}
               </text>
               <text x={lx} y={ly + 15} textAnchor={anchor} fontSize={11} fill="var(--text-muted)">
-                {markMax} · {fmtDay(data[maxI].x)}
+                {markMax} · {longLabel ? longLabel(data[maxI].x) : fmtDay(data[maxI].x)}
               </text>
               <path
                 d={`M${sx},${ly + 2} Q${bx},${ly + 2} ${bx},${by}`}
@@ -167,12 +178,15 @@ export function BarChart({
       </svg>
       {h && hover !== null && (
         <div
-          className="pointer-events-none absolute top-0 z-10 rounded-md border border-border bg-surface-1 px-2.5 py-1.5 text-xs shadow-sm"
-          style={{
-            left: Math.min(Math.max(0, M.left + hover * slot + slot / 2 - 70), width - 150),
-          }}
+          className="pointer-events-none absolute z-20 w-max min-w-28 rounded-md border border-border bg-surface-1 px-2.5 py-1.5 text-xs shadow-md"
+          // beside the hovered bar (never over it): to its right in the left half of the chart, to its left otherwise
+          style={(() => {
+            const bx = M.left + hover * slot + slot / 2;
+            const off = Math.max(barW / 2, 2) + 10;
+            return bx < width / 2 ? { top: top0, left: bx + off } : { top: top0, right: width - bx + off };
+          })()}
         >
-          <div className="text-ink-3">{h.x} UTC</div>
+          <div className="text-ink-3">{longLabel ? longLabel(h.x) : `${h.x} UTC`}</div>
           <div className="font-medium text-ink">{format(h.y)}{series && h.parts ? " total" : ""}</div>
           {series && h.parts && (
             <ul className="mt-1 space-y-0.5">

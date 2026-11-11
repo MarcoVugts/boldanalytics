@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Geist, Geist_Mono, Montserrat } from "next/font/google";
-import { Logo, LogoStacked } from "@/components/Logo";
+import { InlineLogo } from "@/components/InlineLogo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NavLink } from "@/components/NavLink";
 import { Tracker } from "@/components/Tracker";
@@ -33,8 +33,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <header className="sticky top-0 z-40 border-b border-border bg-surface-0/85 backdrop-blur supports-[backdrop-filter]:bg-surface-0/75">
           <nav className="mx-auto flex h-14 max-w-6xl sm:h-16 items-center gap-3 px-4 sm:gap-6">
             <Link href="/" aria-label="Bold Analytics home" className="flex shrink-0 items-center">
-              <span className="flex sm:hidden"><LogoStacked height={32} /></span>
-              <span className="hidden sm:flex"><Logo height={30} /></span>
+              <span className="flex sm:hidden"><InlineLogo variant="stacked" height={34} /></span>
+              <span className="hidden sm:flex"><InlineLogo variant="horizontal" height={30} /></span>
             </Link>
             <div className="flex items-center gap-1 sm:gap-2">
               <NavLink href="/dashboards" match="/dashboards" icon="dashboards">Dashboards</NavLink>

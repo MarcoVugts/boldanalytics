@@ -109,17 +109,6 @@ export function LabelNote() {
   );
 }
 
-/** Daily volume aggregated per ISO week (Monday start). */
-export function weekly(daily: { day: string; volume_usd: number }[]) {
-  const m = new Map<string, number>();
-  for (const d of daily) {
-    const t = new Date(`${d.day}T00:00:00Z`);
-    t.setUTCDate(t.getUTCDate() - ((t.getUTCDay() + 6) % 7));
-    const k = t.toISOString().slice(0, 10);
-    m.set(k, (m.get(k) ?? 0) + d.volume_usd);
-  }
-  return [...m.entries()].map(([x, y]) => ({ x, y }));
-}
 
 /** Pivot daily volume per stock into stacked-bar points; symbols in fixed order (largest first), Other last. */
 export function stackDays(daily: DailyPoint[], byToken: DailyTokenPoint[]) {
