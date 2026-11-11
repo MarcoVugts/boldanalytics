@@ -97,13 +97,13 @@ export default function Home() {
         <h2 className="text-2xl font-bold tracking-tight">What we build</h2>
         <div className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-1 md:mx-0 md:grid md:grid-cols-3 md:gap-4 md:overflow-visible md:px-0 md:pb-0">
           {SERVICES.map((s, i) => (
-            <div key={s.title} className="w-[80%] shrink-0 snap-start overflow-hidden rounded-lg border border-border bg-surface-1 md:w-auto">
-              <div className="aspect-[16/10] border-b border-border">
-                <s.Art />
-              </div>
+            <div key={s.title} className="flex w-[80%] shrink-0 snap-start flex-col overflow-hidden rounded-lg border border-border bg-surface-1 md:w-auto">
               <div className="p-4 sm:p-5">
                 <h3 className="text-lg font-semibold"><span className="mr-2 text-xs font-medium text-ink-3">0{i + 1}</span>{s.title}</h3>
                 <p className="mt-2 text-sm text-ink-2">{s.text}</p>
+              </div>
+              <div className="mt-auto aspect-[16/10] border-t border-border">
+                <s.Art />
               </div>
             </div>
           ))}
