@@ -2,10 +2,35 @@
 import Link from "next/link";
 import { DashboardArt, ReportArt, VisualizationArt } from "@/components/ServiceArt";
 
+// Line icons (24px grid, stroke = currentColor) for the stat tiles.
+const STAT_ICONS = {
+  years: (
+    <>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M3 10h18M8 3v4M16 3v4" />
+      <path d="M8 14h2M14 14h2M8 17.5h2" />
+    </>
+  ),
+  dashboards: (
+    <>
+      <rect x="3" y="3" width="7" height="9" rx="1.5" />
+      <rect x="14" y="3" width="7" height="5" rx="1.5" />
+      <rect x="14" y="12" width="7" height="9" rx="1.5" />
+      <rect x="3" y="16" width="7" height="5" rx="1.5" />
+    </>
+  ),
+  views: (
+    <>
+      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+};
+
 const STATS = [
-  { value: "5+", label: "years in onchain data" },
-  { value: "125+", label: "dashboards built" },
-  { value: "150K+", label: "dashboard views" },
+  { value: "5+", label: "years in onchain data", icon: STAT_ICONS.years },
+  { value: "125+", label: "dashboards built", icon: STAT_ICONS.dashboards },
+  { value: "150K+", label: "dashboard views", icon: STAT_ICONS.views },
 ];
 
 const SERVICES = [
@@ -86,9 +111,16 @@ export default function Home() {
 
       <section className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-border bg-border">
         {STATS.map((s) => (
-          <div key={s.label} className="bg-surface-1 p-4 sm:p-5">
+          <div key={s.label} className="bg-surface-1 p-4 sm:flex sm:items-center sm:gap-4 sm:p-5">
+            <div className="mb-3 flex size-9 shrink-0 items-center justify-center rounded-lg bg-series-1/10 text-series-1 sm:mb-0 sm:size-12">
+              <svg viewBox="0 0 24 24" aria-hidden className="size-5 fill-none stroke-current stroke-[1.8] sm:size-6" strokeLinecap="round" strokeLinejoin="round">
+                {s.icon}
+              </svg>
+            </div>
+            <div>
             <div className="font-brand text-2xl font-extrabold tabular-nums sm:text-3xl">{s.value}</div>
             <div className="mt-1 text-xs text-ink-3 sm:text-sm">{s.label}</div>
+            </div>
           </div>
         ))}
       </section>
