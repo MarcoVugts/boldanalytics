@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-/** Header link with an accent underline when its section is active. */
+/** Header link; the active section gets a tinted pill. */
 const ICONS = {
   // dashboard: tiles of different sizes
   dashboards: (
@@ -26,19 +26,19 @@ const ICONS = {
 
 export function NavLink({ href, match, icon, children }: { href: string; match: string; icon?: keyof typeof ICONS; children: React.ReactNode }) {
   const active = usePathname()?.startsWith(match);
+  // Same font weight in both states (no layout shift); the active tab gets a soft tinted pill instead of an underline.
   return (
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={`relative flex h-full items-center whitespace-nowrap text-sm transition-colors ${active ? "font-semibold text-ink" : "text-ink-2 hover:text-ink"}`}
+      className={`flex items-center whitespace-nowrap rounded-md px-2 py-1.5 text-sm font-medium transition-colors sm:px-2.5 ${active ? "bg-series-1/10 text-ink" : "text-ink-2 hover:bg-surface-1 hover:text-ink"}`}
     >
       {icon && (
-        <svg viewBox="0 0 24 24" aria-hidden className={`mr-1.5 size-4 shrink-0 fill-none max-[380px]:hidden stroke-current stroke-[1.8] ${active ? "text-series-1" : ""}`} strokeLinecap="round" strokeLinejoin="round">
+        <svg viewBox="0 0 24 24" aria-hidden className={`mr-1.5 size-4 shrink-0 fill-none stroke-current stroke-[1.8] max-[380px]:hidden ${active ? "text-series-1" : ""}`} strokeLinecap="round" strokeLinejoin="round">
           {ICONS[icon]}
         </svg>
       )}
       {children}
-      {active && <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-series-1" />}
     </Link>
   );
 }
