@@ -2,6 +2,44 @@
 import Link from "next/link";
 import { DashboardArt, ReportArt, VisualizationArt } from "@/components/ServiceArt";
 
+// "How we work": three steps from question to the right format.
+const STEPS = [
+  {
+    title: "Goal, sources and metrics",
+    text: "We start with the question you want answered, then pick the data sources and the metrics that answer it.",
+    icon: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <circle cx="12" cy="12" r="5" />
+        <circle cx="12" cy="12" r="1.2" fill="currentColor" />
+      </>
+    ),
+  },
+  {
+    title: "Map and verify the data",
+    text: "We map the onchain data behind every metric and cross-check it, so each number holds up.",
+    icon: (
+      <>
+        <ellipse cx="12" cy="5.5" rx="7.5" ry="2.5" />
+        <path d="M4.5 5.5v6c0 1.4 3.4 2.5 7.5 2.5M19.5 5.5v4.5M4.5 11.5v6c0 1.4 3.4 2.5 7.5 2.5" />
+        <path d="M14.5 17.5l2.2 2.2 4.3-4.7" />
+      </>
+    ),
+  },
+  {
+    title: "Choose the format",
+    text: "From a full live dashboard, public or private, to a single visualization that shows it all at once, or a report with context.",
+    icon: (
+      <>
+        <rect x="3" y="3" width="8" height="8" rx="1.5" />
+        <rect x="13" y="3" width="8" height="8" rx="1.5" />
+        <rect x="3" y="13" width="8" height="8" rx="1.5" />
+        <path d="M14 17l2.5 2.5L21 15" />
+      </>
+    ),
+  },
+];
+
 // Line icons (24px grid, stroke = currentColor) for the stat tiles.
 const STAT_ICONS = {
   years: (
@@ -144,6 +182,28 @@ export default function Home() {
           <span className="font-semibold text-ink">Prefer Dune?</span> We also build and maintain dashboards on{" "}
           <a href="https://dune.com" className="underline hover:text-ink">Dune</a>, public or private, including the queries behind them.
         </div>
+      </section>
+
+      <section className="space-y-6">
+        <h2 className="text-2xl font-bold tracking-tight">How we work</h2>
+        <ol className="relative grid gap-6 md:grid-cols-3 md:gap-8">
+          {/* connecting line behind the step markers */}
+          <span aria-hidden className="absolute bottom-5 left-5 top-5 w-px bg-border md:bottom-auto md:left-[16.6%] md:right-[16.6%] md:h-px md:w-auto" />
+          {STEPS.map((st, i) => (
+            <li key={st.title} className="relative flex gap-4 md:flex-col md:items-center md:text-center">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-surface-1 text-series-1 shadow-sm">
+                <svg viewBox="0 0 24 24" aria-hidden className="size-5 fill-none stroke-current stroke-[1.8]" strokeLinecap="round" strokeLinejoin="round">
+                  {st.icon}
+                </svg>
+              </div>
+              <div>
+                <div className="text-xs font-medium text-ink-3">Step {i + 1}</div>
+                <h3 className="mt-0.5 text-lg font-semibold">{st.title}</h3>
+                <p className="mt-1.5 text-sm text-ink-2 md:mx-auto md:max-w-xs">{st.text}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
       </section>
 
       <section id="work" className="scroll-mt-24 space-y-6">
