@@ -267,3 +267,25 @@ export async function getWeekStats(): Promise<WeekStats | null> {
     ORDER BY cur DESC`;
   return { wallets_cur: w?.wallets_cur ?? 0, wallets_prev: w?.wallets_prev ?? 0, tokens: plain(tokens) };
 }
+
+/** Daily volume per stock for the top N stocks (by total volume), the rest as "Other". A stock-to-stock swap counts
+ *  once, on the stock that was bought (cross_usd is subtracted on the sold side), so the parts add up to the daily total. */
+export type DailyTokenPoint = { day: string; symbol: string; volume_usd: number };
+
+export async function getDailyByToken(top = 6): Promise<DailyTokenPoint[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("trades");
+  if (!hasMd()) return [];
+  return plain(await md<DailyTokenPoint>`
+    WITH tot AS (
+      SELECT symbol, SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0) - COALESCE(cross_usd,0)) AS v
+      FROM trades_daily GROUP BY symbol ORDER BY v DESC LIMIT ${top}
+    )
+    SELECT strftime(t.day, '%Y-%m-%d') AS day,
+           CASE WHEN tot.symbol IS NULL THEN 'Other' ELSE t.symbol END AS symbol,
+           SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0) - COALESCE(cross_usd,0))::float8 AS volume_usd
+    FROM trades_daily t LEFT JOIN tot ON tot.symbol = t.symbol
+    GROUP BY 1, 2
+    ORDER BY 1`);
+}

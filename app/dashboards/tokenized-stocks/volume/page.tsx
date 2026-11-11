@@ -2,19 +2,20 @@ import type { Metadata } from "next";
 import { BarChart } from "@/components/BarChart";
 import { ShareCard } from "@/components/ShareCard";
 import { int, usd } from "@/lib/format";
-import { getByDex, getByToken, getDaily, getOverview } from "@/lib/queries/trades";
-import { GroupTable, TokenBars, milestoneSub, weekly } from "../shared";
+import { getByDex, getByToken, getDaily, getDailyByToken, getOverview } from "@/lib/queries/trades";
+import { GroupTable, TokenBars, milestoneSub, stackDays, weekly } from "../shared";
+import { VolumeChart } from "@/components/dashboard/VolumeChart";
 
 export const metadata: Metadata = { title: "Volume · Tokenized Stocks on Base" };
 
 export default async function Volume() {
-  const [overview, daily, tokens, dexes] = await Promise.all([getOverview(), getDaily(), getByToken(), getByDex()]);
+  const [overview, daily, tokens, dexes, byToken] = await Promise.all([getOverview(), getDaily(), getByToken(), getByDex(), getDailyByToken()]);
   if (!overview?.last_day) return null;
   const range = { asOf: overview.last_day ?? undefined, from: overview.first_day ?? undefined };
   return (
     <div className="space-y-6">
       <ShareCard slug="daily-dex-volume" exportSub="USD, all tokens" {...range} title="Daily DEX volume" sub={milestoneSub(daily)}>
-        <BarChart unit="usd" label="Daily DEX volume in USD" markMax="record day" data={daily.map((d) => ({ x: d.day, y: d.volume_usd }))} />
+        <VolumeChart {...stackDays(daily, byToken)} markMax="record day" />
       </ShareCard>
 
       <div className="grid gap-4 lg:grid-cols-2">

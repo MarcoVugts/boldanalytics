@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { num, usd } from "@/lib/format";
 import { useExport } from "./ExportContext";
 
-type Point = { x: string; y: number };
+/** `parts`: per-series values for a stacked bar (sum = y). */
+type Point = { x: string; y: number; parts?: Record<string, number> };
+export type Series = { key: string; color: string };
 
 const BASE_HEIGHT = 220;
 const M = { top: 12, right: 8, bottom: 24, left: 56 };
@@ -25,10 +27,13 @@ export function BarChart({
   unit,
   label,
   markMax,
+  series,
 }: {
   data: Point[];
   unit: "usd" | "count";
   label: string;
+  /** Stack each bar by these series (bottom → top), using Point.parts. */
+  series?: Series[];
   /** Annotate the highest bar with its value and an arrow (e.g. "record day") */
   markMax?: string;
 }) {
@@ -86,12 +91,35 @@ export function BarChart({
           const top = y(d.y);
           const hgt = Math.max(0, top0 + innerH - top);
           const r = Math.min(4, barW / 2, hgt);
+          const roundTop = (yt: number, hh: number, rr: number) =>
+            `M${x},${yt + hh} V${yt + rr} Q${x},${yt} ${x + rr},${yt} H${x + barW - rr} Q${x + barW},${yt} ${x + barW},${yt + rr} V${yt + hh} Z`;
+          const stacked = series && d.parts;
+          // stacked: segments bottom → top with a 1px surface gap; only the top segment gets rounded corners
+          let cum = 0;
+          const segs = stacked
+            ? series.flatMap((sr) => {
+                const v = d.parts![sr.key] ?? 0;
+                if (v <= 0) return [];
+                const y0 = y(cum), y1 = y(cum + v);
+                cum += v;
+                return [{ key: sr.key, color: sr.color, y1, h: Math.max(0, y0 - y1) }];
+              })
+            : [];
           return (
-            <g key={d.x}>
-              <path
-                d={`M${x},${top + hgt} V${top + r} Q${x},${top} ${x + r},${top} H${x + barW - r} Q${x + barW},${top} ${x + barW},${top + r} V${top + hgt} Z`}
-                fill={hover === i ? "var(--series-1-hover)" : "var(--series-1)"}
-              />
+            <g key={d.x} opacity={hover !== null && hover !== i && stacked ? 0.75 : 1}>
+              {stacked ? (
+                segs.map((sg, k) => {
+                  const last = k === segs.length - 1;
+                  const hh = Math.max(0, sg.h - (k > 0 && sg.h > 1.5 && barW >= 5 ? 1 : 0));
+                  return last ? (
+                    <path key={sg.key} d={roundTop(sg.y1, hh, Math.min(4, barW / 2, hh))} fill={sg.color} />
+                  ) : (
+                    <rect key={sg.key} x={x} y={sg.y1} width={barW} height={hh} fill={sg.color} />
+                  );
+                })
+              ) : (
+                <path d={roundTop(top, hgt, r)} fill={hover === i ? "var(--series-1-hover)" : "var(--series-1)"} />
+              )}
               {/* hit target: full column height */}
               <rect x={M.left + i * slot} y={top0} width={slot} height={innerH} fill="transparent" onMouseEnter={() => setHover(i)} />
               {i % labelEvery === 0 && (
@@ -141,11 +169,22 @@ export function BarChart({
         <div
           className="pointer-events-none absolute top-0 z-10 rounded-md border border-border bg-surface-1 px-2.5 py-1.5 text-xs shadow-sm"
           style={{
-            left: Math.min(Math.max(0, M.left + hover * slot + slot / 2 - 60), width - 130),
+            left: Math.min(Math.max(0, M.left + hover * slot + slot / 2 - 70), width - 150),
           }}
         >
           <div className="text-ink-3">{h.x} UTC</div>
-          <div className="font-medium text-ink">{format(h.y)}</div>
+          <div className="font-medium text-ink">{format(h.y)}{series && h.parts ? " total" : ""}</div>
+          {series && h.parts && (
+            <ul className="mt-1 space-y-0.5">
+              {[...series].reverse().filter((sr) => (h.parts![sr.key] ?? 0) > 0).map((sr) => (
+                <li key={sr.key} className="flex items-center gap-1.5 text-ink-2">
+                  <span className="size-2 rounded-sm" style={{ background: sr.color }} />
+                  <span className="w-12">{sr.key}</span>
+                  <span className="ml-auto tabular-nums">{format(h.parts![sr.key])}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </div>

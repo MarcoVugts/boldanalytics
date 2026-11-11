@@ -1,5 +1,5 @@
 import { int, usd } from "@/lib/format";
-import type { GroupRow, TokenRow } from "@/lib/queries/trades";
+import type { DailyPoint, DailyTokenPoint, GroupRow, TokenRow } from "@/lib/queries/trades";
 
 // Building blocks shared by the Tokenized Stocks dashboard pages.
 
@@ -119,4 +119,18 @@ export function weekly(daily: { day: string; volume_usd: number }[]) {
     m.set(k, (m.get(k) ?? 0) + d.volume_usd);
   }
   return [...m.entries()].map(([x, y]) => ({ x, y }));
+}
+
+/** Pivot daily volume per stock into stacked-bar points; symbols in fixed order (largest first), Other last. */
+export function stackDays(daily: DailyPoint[], byToken: DailyTokenPoint[]) {
+  const tot = new Map<string, number>();
+  for (const r of byToken) if (r.symbol !== "Other") tot.set(r.symbol, (tot.get(r.symbol) ?? 0) + r.volume_usd);
+  const symbols = [...tot.entries()].sort((a, b) => b[1] - a[1]).map(([s]) => s);
+  const parts = new Map<string, Record<string, number>>();
+  for (const r of byToken) (parts.get(r.day) ?? parts.set(r.day, {}).get(r.day)!)[r.symbol] = r.volume_usd;
+  const days = daily.map((d) => {
+    const p = parts.get(d.day) ?? {};
+    return { x: d.day, y: Object.values(p).reduce((s, v) => s + v, 0) || d.volume_usd, parts: p };
+  });
+  return { days, symbols };
 }

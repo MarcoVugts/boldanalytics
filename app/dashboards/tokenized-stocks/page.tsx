@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BarChart } from "@/components/BarChart";
 import { ShareCard } from "@/components/ShareCard";
 import { Kpi, change } from "@/components/dashboard/Kpi";
 import { usd, num } from "@/lib/format";
-import { getDaily, getOverview, getWeekStats } from "@/lib/queries/trades";
+import { getDaily, getDailyByToken, getOverview, getWeekStats } from "@/lib/queries/trades";
 import { getPressure } from "@/lib/queries/flows";
-import { BASE, milestoneSub } from "./shared";
+import { BASE, milestoneSub, stackDays } from "./shared";
+import { VolumeChart } from "@/components/dashboard/VolumeChart";
 
 export const metadata: Metadata = {
   title: "Tokenized Stocks on Base",
@@ -17,7 +17,7 @@ const sum = (xs: number[]) => xs.reduce((s, x) => s + x, 0);
 const fmtDay = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 
 export default async function Overview() {
-  const [overview, daily, week, pressure] = await Promise.all([getOverview(), getDaily(), getWeekStats(), getPressure()]);
+  const [overview, daily, week, pressure, byToken] = await Promise.all([getOverview(), getDaily(), getWeekStats(), getPressure(), getDailyByToken()]);
   if (!overview?.last_day) return null;
 
   const last = daily.slice(-7), prev = daily.slice(-14, -7);
@@ -76,7 +76,7 @@ export default async function Overview() {
       )}
 
       <ShareCard slug="daily-dex-volume" exportSub="USD, all tokens" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Daily DEX volume" sub={milestoneSub(daily)}>
-        <BarChart unit="usd" label="Daily DEX volume in USD" markMax="record day" data={daily.map((d) => ({ x: d.day, y: d.volume_usd }))} />
+        <VolumeChart {...stackDays(daily, byToken)} markMax="record day" />
       </ShareCard>
 
       <section className="space-y-3">
