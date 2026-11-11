@@ -240,3 +240,30 @@ export async function getJobEvents(limit = 30): Promise<{ events: JobEvent[]; lo
     FROM job_locks WHERE name = 'backfill'`;
   return { events: plain(events), lock: lock ? { ...lock } : null };
 }
+
+/** Last 7 days vs the 7 days before (relative to the latest loaded day): distinct wallets and volume per token. */
+export type WeekToken = { symbol: string; cur: number; prev: number };
+export type WeekStats = { wallets_cur: number; wallets_prev: number; tokens: WeekToken[] };
+
+export async function getWeekStats(): Promise<WeekStats | null> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("trades");
+  if (!hasMd()) return null;
+  const [w] = await md<{ wallets_cur: number; wallets_prev: number }>`
+    WITH m AS (SELECT MAX(day) AS d FROM trades_daily)
+    SELECT COUNT(DISTINCT wallet) FILTER (WHERE day > m.d - INTERVAL 7 DAY)::float8                                  AS wallets_cur,
+           COUNT(DISTINCT wallet) FILTER (WHERE day <= m.d - INTERVAL 7 DAY AND day > m.d - INTERVAL 14 DAY)::float8 AS wallets_prev
+    FROM trades_daily, m`;
+  const tokens = await md<WeekToken>`
+    WITH m AS (SELECT MAX(day) AS d FROM trades_daily)
+    SELECT symbol,
+           SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0)) FILTER (WHERE day > m.d - INTERVAL 7 DAY)::float8 AS cur,
+           COALESCE(SUM(COALESCE(buy_usd,0) + COALESCE(sell_usd,0)) FILTER (WHERE day <= m.d - INTERVAL 7 DAY AND day > m.d - INTERVAL 14 DAY), 0)::float8 AS prev
+    FROM trades_daily, m
+    WHERE day > m.d - INTERVAL 14 DAY
+    GROUP BY symbol
+    HAVING cur > 0
+    ORDER BY cur DESC`;
+  return { wallets_cur: w?.wallets_cur ?? 0, wallets_prev: w?.wallets_prev ?? 0, tokens: plain(tokens) };
+}

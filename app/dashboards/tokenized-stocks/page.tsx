@@ -1,186 +1,97 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { BarChart } from "@/components/BarChart";
-import { Stat } from "@/components/Stat";
 import { ShareCard } from "@/components/ShareCard";
-import { RecordDay } from "@/components/RecordDay";
-import { int, num, usd } from "@/lib/format";
-import { getByDex, getByEntryContract, getDaily, getOverview, type GroupRow } from "@/lib/queries/trades";
-import { FlowSankey } from "@/components/FlowSankey";
-import { NetworkGraph } from "@/components/NetworkGraph";
-import { PressureChart } from "@/components/PressureChart";
-import { getFlows, getNetwork, getPressure, HF_TRADES_PER_DAY } from "@/lib/queries/flows";
-import { getCoTrading } from "@/lib/queries/segments";
-import { CoTradeMatrix } from "@/components/CoTradeMatrix";
+import { Kpi, change } from "@/components/dashboard/Kpi";
+import { usd, num } from "@/lib/format";
+import { getDaily, getOverview, getWeekStats } from "@/lib/queries/trades";
+import { getPressure } from "@/lib/queries/flows";
+import { BASE, milestoneSub } from "./shared";
 
 export const metadata: Metadata = {
   title: "Tokenized Stocks on Base",
   description: "Who trades tokenized stocks onchain, how much, and when.",
 };
 
+const sum = (xs: number[]) => xs.reduce((s, x) => s + x, 0);
+const fmtDay = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 
-export default async function TokenizedStocks() {
-  const [overview, daily, dexes, entries, pressure, flows, network, cotrade] = await Promise.all([
-    getOverview(), getDaily(), getByDex(), getByEntryContract(),
-    getPressure(), getFlows(), getNetwork(), getCoTrading(),
-  ]);
-  const volumeSub = milestoneSub(daily);
+export default async function Overview() {
+  const [overview, daily, week, pressure] = await Promise.all([getOverview(), getDaily(), getWeekStats(), getPressure()]);
+  if (!overview?.last_day) return null;
+
+  const last = daily.slice(-7), prev = daily.slice(-14, -7);
+  const vol7 = sum(last.map((d) => d.volume_usd)), volPrev = sum(prev.map((d) => d.volume_usd));
+  const tr7 = sum(last.map((d) => d.trades)), trPrev = sum(prev.map((d) => d.trades));
+  const record = daily.reduce((a, d) => (d.volume_usd > a.volume_usd ? d : a), daily[0]);
+  const spark = (k: "volume_usd" | "trades" | "wallets") => daily.slice(-30).map((d) => d[k]);
+
+  // "This week": top stock, biggest riser (ignoring tiny tokens), share of high-frequency wallets in volume.
+  const tokens = week?.tokens ?? [];
+  const tokTotal = sum(tokens.map((t) => t.cur)) || 1;
+  const top = tokens[0];
+  const riser = tokens
+    .filter((t) => t.prev > 0 && t.cur > tokTotal * 0.01)
+    .map((t) => ({ ...t, ch: t.cur / t.prev - 1 }))
+    .sort((a, b) => b.ch - a.ch)[0];
+  const lastDays = new Set(last.map((d) => d.day));
+  const pd = pressure.days.filter((d) => lastDays.has(d.day));
+  const hf = sum(pd.filter((d) => d.segment === "hf").map((d) => d.buy + d.sell));
+  const hfShare = hf / (sum(pd.map((d) => d.buy + d.sell)) || 1);
+
+  const facts = [
+    top && { k: "Most traded", v: top.symbol, s: `${((top.cur / tokTotal) * 100).toFixed(0)}% of volume` },
+    riser && { k: "Biggest riser", v: riser.symbol, s: `▲ ${(riser.ch * 100).toFixed(0)}% vs previous week` },
+    pd.length > 0 && { k: "High-frequency share", v: `${(hfShare * 100).toFixed(0)}%`, s: "of volume from bots and market makers" },
+  ].filter(Boolean) as { k: string; v: string; s: string }[];
+
+  const dives = [
+    { href: `${BASE}/volume`, title: "Volume", text: "Per day, per week, per stock and per DEX." },
+    { href: `${BASE}/liquidity-flow`, title: "Liquidity flow", text: "How volume flows from wallets via apps and DEXs to stocks, and where buying or selling dominates." },
+    { href: `${BASE}/traders`, title: "Traders", text: "Active wallets, which stocks are traded together and who trades what." },
+    { href: `${BASE}/visuals`, title: "Visuals", text: "The record day in motion and other visuals, ready to share." },
+  ];
 
   return (
     <div className="space-y-6">
-      <header className="space-y-2">
-        <p className="text-xs font-medium uppercase tracking-wider text-ink-3">Dashboard · updated daily</p>
-        <h1 className="text-3xl font-bold tracking-tight">Tokenized Stocks on Base</h1>
-        <p className="max-w-2xl text-ink-2">
-          DEX trading in tokenized equities, aggregated per wallet, token and day.
-          {overview?.last_day && <> Data through {overview.last_day} (UTC).</>}
-        </p>
-      </header>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Kpi label="Volume, last 7 days" value={usd(vol7)} delta={change(vol7, volPrev)} note="vs previous 7 days" spark={spark("volume_usd")} />
+        <Kpi label="Trades, last 7 days" value={num(tr7)} delta={change(tr7, trPrev)} note="vs previous 7 days" spark={spark("trades")} />
+        <Kpi label="Active wallets, last 7 days" value={num(week?.wallets_cur ?? 0)} delta={week ? change(week.wallets_cur, week.wallets_prev) : null} note="distinct wallets" spark={spark("wallets")} />
+        <Kpi label="Total volume" value={usd(overview.volume_usd)} note={`since ${fmtDay(overview.first_day!)} · record ${usd(record.volume_usd)} on ${fmtDay(record.day)}`} />
+      </div>
 
-      {!overview || !overview.last_day ? (
-        <div className="rounded-lg border border-dashed border-border p-8 text-sm text-ink-2">
-          No data loaded yet. Run the loader: <code className="font-mono">GET /api/cron/trades</code>.
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <Stat label="DEX volume" value={usd(overview.volume_usd)} note="USD, stock-to-stock swaps counted once" />
-            <Stat label="Swaps" value={num(overview.trades)} note="dex.trades rows, de-duplicated" />
-            <Stat label="Unique wallets" value={num(overview.wallets)} note="by tx sender" />
-            <Stat label="Days covered" value={int(daily.length)} note={`${overview.first_day} → ${overview.last_day}`} />
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <ShareCard slug="daily-dex-volume" exportSub="USD, all tokens" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Daily DEX volume" sub={volumeSub}>
-              <BarChart unit="usd" label="Daily DEX volume in USD" markMax="record day" data={daily.map((d) => ({ x: d.day, y: d.volume_usd }))} />
-            </ShareCard>
-            <ShareCard slug="daily-active-wallets" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Daily active wallets" sub="Wallets with at least one trade">
-              <BarChart unit="count" label="Daily active wallets" data={daily.map((d) => ({ x: d.day, y: d.wallets }))} />
-            </ShareCard>
-          </div>
-
-          <RecordDay />
-
-          <ShareCard
-            slug="buy-sell-pressure"
-            exportZoom={1.1}
-            asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined}
-            title="Buy and sell pressure"
-            sub={`Bought vs sold per stock. High-frequency = wallets with ${HF_TRADES_PER_DAY}+ trades that day (bots, market makers).`}
-          >
-            <PressureChart tokens={pressure.tokens} days={pressure.days} />
-          </ShareCard>
-
-          <ShareCard slug="how-the-volume-flows" format="wide" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="How the volume flows" sub="Wallet type → app or operator the transaction went through → DEX that executed it → stock. Hover to follow a path.">
-            <FlowSankey rows={flows} />
-          </ShareCard>
-
-          <ShareCard slug="traded-together" exportZoom={1} asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Traded together" sub="Which stocks the same (regular) traders trade. Affinity above 1× means more often together than chance.">
-            <CoTradeMatrix data={cotrade} />
-          </ShareCard>
-
-          <ShareCard slug="who-trades-what" exportZoom={1} asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Who trades what" sub="The 60 largest wallets and the stocks they trade. Hover a wallet or stock to see its connections.">
-            <NetworkGraph wallets={network.wallets} tokens={network.tokens} edges={network.edges} />
-          </ShareCard>
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <ShareCard slug="by-dex" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="By DEX" sub="Where the swap executed (venues grouped, e.g. all Aerodrome pool types)">
-              <GroupTable rows={dexes} label="DEX" />
-            </ShareCard>
-            <ShareCard slug="by-app-operator" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="By app / operator" sub="Who the transaction went through: DEX router, aggregator or a trading firm's own contract">
-              <GroupTable rows={entries} label="App / operator" />
-            </ShareCard>
-          </div>
-
-          <details className="rounded-lg border border-border bg-surface-1 p-4 text-sm">
-            <summary className="cursor-pointer text-ink-2">Daily data table</summary>
-            <table className="mt-3 w-full">
-              <thead className="text-left text-xs text-ink-3">
-                <tr><th className="py-1 font-normal">Day (UTC)</th><th className="py-1 text-right font-normal">Volume</th><th className="py-1 text-right font-normal">Trades</th><th className="py-1 text-right font-normal">Wallets</th></tr>
-              </thead>
-              <tbody>
-                {[...daily].reverse().map((d) => (
-                  <tr key={d.day} className="border-t border-border">
-                    <td className="py-1">{d.day}</td><td className="py-1 text-right">{usd(d.volume_usd)}</td>
-                    <td className="py-1 text-right">{int(d.trades)}</td><td className="py-1 text-right">{int(d.wallets)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </details>
-
-          <p className="text-xs text-ink-3">
-            App labels: &ldquo;(attributed)&rdquo; = identity from third-party labels, not confirmed by the firm. Wintermute: the trading contract shares a multisig
-            with a vault that Arkham, Etherscan and the Open Labels Initiative label as Wintermute. &ldquo;(suspected)&rdquo; marks weaker attributions.
-            &ldquo;Unknown market maker&rdquo; = trading contracts whose owner we could not identify, labelled by behaviour: they buy and sell almost exactly the same amount
-            of each stock (inventory-neutral), like a market maker.
-            Other names come from Dune contract metadata. Unlabeled bot = unknown contract with few senders and many trades.
-          </p>
-          <p className="text-xs text-ink-3">
-            Totals count a stock-to-stock swap (e.g. AAPL → NVDA) once.
-          </p>
-        </>
-      )}
-    </div>
-  );
-}
-
-function GroupTable({ rows, label, mono }: { rows: GroupRow[]; label: string; mono?: boolean }) {
-  const total = rows.reduce((s, r) => s + r.volume_usd, 0) || 1;
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead className="text-left text-xs text-ink-3">
-          <tr className="border-b border-border">
-            <th className="py-2 pr-4 font-normal">{label}</th>
-            <th className="py-2 pr-4 text-right font-normal">Volume</th>
-            <th className="py-2 pr-4 text-right font-normal">Share</th>
-            <th className="py-2 pr-4 text-right font-normal">Swaps</th>
-            <th className="py-2 text-right font-normal">Wallets</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.key} className="border-b border-border last:border-0">
-              <td className={`py-2 pr-4 ${mono ? "font-mono text-xs" : "font-medium"}`} title={r.key}>
-                {mono ? `${r.key.slice(0, 8)}…${r.key.slice(-6)}` : r.key}
-                {r.kind && r.kind !== "unknown" && (
-                  <span className="ml-2 rounded bg-surface-0 px-1.5 py-0.5 text-[11px] font-normal text-ink-3">{KIND[r.kind] ?? r.kind}</span>
-                )}
-              </td>
-              <td className="py-2 pr-4 text-right">{usd(r.volume_usd)}</td>
-              <td className="py-2 pr-4 text-right text-ink-2">{((r.volume_usd / total) * 100).toFixed(1)}%</td>
-              <td className="py-2 pr-4 text-right">{int(r.swaps)}</td>
-              <td className="py-2 text-right">{int(r.wallets)}</td>
-            </tr>
+      {facts.length > 0 && (
+        <section className="divide-y divide-border rounded-lg border border-border bg-surface-1 sm:grid sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          {facts.map((f) => (
+            <div key={f.k} className="flex items-baseline justify-between gap-3 p-3 sm:block sm:p-4">
+              <div className="text-xs font-medium uppercase tracking-wider text-ink-3">{f.k}<span className="hidden sm:inline"> · this week</span></div>
+              <div className="text-right sm:text-left">
+                <div className="font-brand text-lg font-extrabold sm:mt-1 sm:text-xl">{f.v}</div>
+                <div className="text-xs text-ink-2 sm:text-sm">{f.s}</div>
+              </div>
+            </div>
           ))}
-        </tbody>
-      </table>
+        </section>
+      )}
+
+      <ShareCard slug="daily-dex-volume" exportSub="USD, all tokens" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Daily DEX volume" sub={milestoneSub(daily)}>
+        <BarChart unit="usd" label="Daily DEX volume in USD" markMax="record day" data={daily.map((d) => ({ x: d.day, y: d.volume_usd }))} />
+      </ShareCard>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Deep dives</h2>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {dives.map((d) => (
+            <Link key={d.href} href={d.href} className="group rounded-lg border border-border bg-surface-1 p-3 hover:border-series-1/40 sm:p-4">
+              <div className="font-semibold group-hover:underline">{d.title} →</div>
+              <p className="mt-1 hidden text-sm text-ink-2 sm:block">{d.text}</p>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <p className="text-xs text-ink-3">Totals count a stock-to-stock swap (e.g. AAPL → NVDA) once. Weeks compare the last 7 loaded days with the 7 before.</p>
     </div>
   );
-}
-
-const KIND: Record<string, string> = {
-  market_maker: "market maker",
-  dex_router: "DEX router",
-  aggregator: "aggregator",
-  smart_wallet: "smart wallets",
-  bridge: "bridge",
-  multisig: "multisig",
-  defi_protocol: "DeFi",
-  bot: "bot",
-  other: "other",
-};
-
-/** "USD, all tokens · Passed $5B total volume on 7 Nov": whole billions, first day the running total crossed it. */
-function milestoneSub(daily: { day: string; volume_usd: number }[]) {
-  const base = "USD, all tokens";
-  const total = daily.reduce((s, d) => s + d.volume_usd, 0);
-  const milestone = Math.floor(total / 1e9);
-  if (milestone < 1) return base;
-  let run = 0;
-  const day = daily.find((d) => (run += d.volume_usd) >= milestone * 1e9)?.day;
-  const when = day
-    ? ` on ${new Date(`${day}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" })}`
-    : "";
-  return `${base} · Passed $${milestone}B total volume${when}`;
 }
