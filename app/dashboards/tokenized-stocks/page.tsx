@@ -4,13 +4,12 @@ import { Stat } from "@/components/Stat";
 import { ShareCard } from "@/components/ShareCard";
 import { RecordDay } from "@/components/RecordDay";
 import { int, num, usd } from "@/lib/format";
-import { getByDex, getByEntryContract, getByToken, getDaily, getOverview, type GroupRow } from "@/lib/queries/trades";
+import { getByDex, getByEntryContract, getDaily, getOverview, type GroupRow } from "@/lib/queries/trades";
 import { FlowSankey } from "@/components/FlowSankey";
 import { NetworkGraph } from "@/components/NetworkGraph";
 import { PressureChart } from "@/components/PressureChart";
 import { getFlows, getNetwork, getPressure, HF_TRADES_PER_DAY } from "@/lib/queries/flows";
-import { getCoTrading, getSegments } from "@/lib/queries/segments";
-import { SegmentChart } from "@/components/SegmentChart";
+import { getCoTrading } from "@/lib/queries/segments";
 import { CoTradeMatrix } from "@/components/CoTradeMatrix";
 
 export const metadata: Metadata = {
@@ -20,11 +19,10 @@ export const metadata: Metadata = {
 
 
 export default async function TokenizedStocks() {
-  const [overview, daily, tokens, dexes, entries, pressure, flows, network, segments, cotrade] = await Promise.all([
-    getOverview(), getDaily(), getByToken(), getByDex(), getByEntryContract(),
-    getPressure(), getFlows(), getNetwork(), getSegments(), getCoTrading(),
+  const [overview, daily, dexes, entries, pressure, flows, network, cotrade] = await Promise.all([
+    getOverview(), getDaily(), getByDex(), getByEntryContract(),
+    getPressure(), getFlows(), getNetwork(), getCoTrading(),
   ]);
-  const totalVol = tokens.reduce((s, t) => s + t.volume_usd, 0) || 1;
   const volumeSub = milestoneSub(daily);
 
   return (
@@ -62,10 +60,6 @@ export default async function TokenizedStocks() {
 
           <RecordDay />
 
-          <ShareCard slug="who-are-the-traders" asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Who are the traders?" sub="Wallets bucketed per day by how much they traded, how often, and how many different stocks.">
-            <SegmentChart rows={segments} />
-          </ShareCard>
-
           <ShareCard
             slug="buy-sell-pressure"
             exportZoom={1.1}
@@ -86,40 +80,6 @@ export default async function TokenizedStocks() {
 
           <ShareCard slug="who-trades-what" exportZoom={1} asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="Who trades what" sub="The 60 largest wallets and the stocks they trade. Hover a wallet or stock to see its connections.">
             <NetworkGraph wallets={network.wallets} tokens={network.tokens} edges={network.edges} />
-          </ShareCard>
-
-          <ShareCard slug="by-token" exportZoom={1} asOf={overview.last_day ?? undefined} from={overview.first_day ?? undefined} title="By token" sub="Volume share across all loaded days">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="text-left text-xs text-ink-3">
-                  <tr className="border-b border-border">
-                    <th className="py-2 pr-4 font-normal">Token</th>
-                    <th className="py-2 pr-4 text-right font-normal">Volume</th>
-                    <th className="py-2 pr-4 font-normal">Share</th>
-                    <th className="py-2 pr-4 text-right font-normal">Swaps</th>
-                    <th className="py-2 text-right font-normal">Wallets</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tokens.map((t) => (
-                    <tr key={t.symbol} className="border-b border-border last:border-0">
-                      <td className="py-2 pr-4 font-medium">{t.symbol}</td>
-                      <td className="py-2 pr-4 text-right">{usd(t.volume_usd)}</td>
-                      <td className="w-1/3 py-2 pr-4">
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 flex-1 rounded-sm bg-surface-0">
-                            <div className="h-2 rounded-sm bg-series-1" style={{ width: `${(t.volume_usd / totalVol) * 100}%` }} />
-                          </div>
-                          <span className="w-12 text-right text-xs text-ink-2">{((t.volume_usd / totalVol) * 100).toFixed(1)}%</span>
-                        </div>
-                      </td>
-                      <td className="py-2 pr-4 text-right">{int(t.trades)}</td>
-                      <td className="py-2 text-right">{int(t.wallets)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
           </ShareCard>
 
           <div className="grid gap-4 lg:grid-cols-2">
@@ -156,7 +116,7 @@ export default async function TokenizedStocks() {
             Other names come from Dune contract metadata. Unlabeled bot = unknown contract with few senders and many trades.
           </p>
           <p className="text-xs text-ink-3">
-            Totals count a stock-to-stock swap (e.g. AAPL → NVDA) once; the per-token table counts it on both tokens.
+            Totals count a stock-to-stock swap (e.g. AAPL → NVDA) once.
           </p>
         </>
       )}
