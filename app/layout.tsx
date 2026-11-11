@@ -31,13 +31,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="min-h-full flex flex-col">
         <header className="sticky top-0 z-40 border-b border-border bg-surface-0/85 backdrop-blur supports-[backdrop-filter]:bg-surface-0/75">
-          <nav className="mx-auto flex h-14 max-w-6xl sm:h-16 items-center gap-5 px-4 sm:gap-8">
+          <nav className="mx-auto flex h-14 max-w-6xl sm:h-16 items-center gap-4 px-4 sm:gap-8">
             <Link href="/" aria-label="Bold Analytics home" className="flex items-center">
               <span className="flex sm:hidden"><LogoStacked height={38} /></span>
               <span className="hidden sm:flex"><Logo height={30} /></span>
             </Link>
-            <div className="flex h-full items-stretch gap-6">
-              <NavLink href="/stories/tokenized-stocks" match="/stories">Data stories</NavLink>
+            <div className="flex h-full items-stretch gap-4 sm:gap-6">
+              <NavLink href="/dashboards" match="/dashboards">Dashboards</NavLink>
+              <NavLink href="/visualizations" match="/visualizations">Visualizations</NavLink>
             </div>
             <ThemeToggle />
           </nav>

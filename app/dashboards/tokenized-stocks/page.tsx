@@ -30,7 +30,7 @@ export default async function TokenizedStocks() {
   return (
     <div className="space-y-6">
       <header className="space-y-2">
-        <p className="text-xs font-medium uppercase tracking-wider text-ink-3">Data story</p>
+        <p className="text-xs font-medium uppercase tracking-wider text-ink-3">Dashboard · updated daily</p>
         <h1 className="text-3xl font-bold tracking-tight">Tokenized Stocks on Base</h1>
         <p className="max-w-2xl text-ink-2">
           DEX trading in tokenized equities, aggregated per wallet, token and day.
