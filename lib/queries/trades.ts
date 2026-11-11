@@ -272,7 +272,7 @@ export async function getWeekStats(): Promise<WeekStats | null> {
  *  once, on the stock that was bought (cross_usd is subtracted on the sold side), so the parts add up to the daily total. */
 export type DailyTokenPoint = { day: string; symbol: string; volume_usd: number };
 
-export async function getDailyByToken(top = 6): Promise<DailyTokenPoint[]> {
+export async function getDailyByToken(top = 8): Promise<DailyTokenPoint[]> {
   "use cache";
   cacheLife("hours");
   cacheTag("trades");

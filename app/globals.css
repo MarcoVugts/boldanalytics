@@ -12,7 +12,7 @@
   --series-1-hover: #345d8c;
   --series-2: #eb6834;
   /* categorical, fixed order (validated: light surface #fdf8f3) */
-  --cat-1: #4678ae; --cat-2: #eb6834; --cat-3: #1baf7a; --cat-4: #eda100; --cat-5: #e87ba4; --cat-6: #6250d6;
+  --cat-1: #4678ae; --cat-2: #eb6834; --cat-3: #1baf7a; --cat-4: #eda100; --cat-5: #e87ba4; --cat-6: #008300; --cat-7: #6250d6; --cat-8: #e34948;
   --buy: #4678ae;
   --sell: #e34948;
   --neutral-mark: #a9a8a2;
@@ -42,7 +42,7 @@
     --series-1-hover: #88afdd;
     --series-2: #d95926;
     /* categorical, fixed order (validated: dark surface #1c262d) */
-    --cat-1: #5f93cf; --cat-2: #d95926; --cat-3: #199e70; --cat-4: #c98500; --cat-5: #d55181; --cat-6: #9085e9;
+    --cat-1: #5f93cf; --cat-2: #d95926; --cat-3: #199e70; --cat-4: #c98500; --cat-5: #d55181; --cat-6: #008300; --cat-7: #9085e9; --cat-8: #e66767;
     --buy: #5f93cf;
     --sell: #e66767;
     --neutral-mark: #6b6a65;
@@ -68,7 +68,7 @@
   --series-1-hover: #88afdd;
   --series-2: #d95926;
   /* categorical, fixed order (validated: dark surface #1c262d) */
-  --cat-1: #5f93cf; --cat-2: #d95926; --cat-3: #199e70; --cat-4: #c98500; --cat-5: #d55181; --cat-6: #9085e9;
+  --cat-1: #5f93cf; --cat-2: #d95926; --cat-3: #199e70; --cat-4: #c98500; --cat-5: #d55181; --cat-6: #008300; --cat-7: #9085e9; --cat-8: #e66767;
   --buy: #5f93cf;
   --sell: #e66767;
   --neutral-mark: #6b6a65;
@@ -95,7 +95,7 @@
   --series-1-hover: #345d8c;
   --series-2: #eb6834;
   /* categorical, fixed order (validated: light surface #fdf8f3) */
-  --cat-1: #4678ae; --cat-2: #eb6834; --cat-3: #1baf7a; --cat-4: #eda100; --cat-5: #e87ba4; --cat-6: #6250d6;
+  --cat-1: #4678ae; --cat-2: #eb6834; --cat-3: #1baf7a; --cat-4: #eda100; --cat-5: #e87ba4; --cat-6: #008300; --cat-7: #6250d6; --cat-8: #e34948;
   --buy: #4678ae;
   --sell: #e34948;
   --neutral-mark: #a9a8a2;
