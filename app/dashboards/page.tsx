@@ -12,7 +12,7 @@ const DASHBOARDS = [
     href: "/dashboards/tokenized-stocks",
     title: "Tokenized stocks on Base",
     text: "Who trades Coinbase's tokenized stocks onchain: daily volume, active wallets, trader segments, market makers and how the volume flows.",
-    img: "/stories/record-day/trading-never-sleeps-600.jpg",
+    img: "/stories/record-day/trading-never-sleeps-1200.jpg",
     alt: "Heatmap of tokenized-stock volume per hour by operator",
   },
 ];

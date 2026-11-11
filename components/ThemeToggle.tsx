@@ -29,7 +29,7 @@ export function ThemeToggle() {
       onClick={toggle}
       aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
       title={theme === "dark" ? "Light mode" : "Dark mode"}
-      className="ml-auto flex h-9 w-9 items-center justify-center rounded-lg border border-border text-ink-2 transition-colors hover:bg-surface-1 hover:text-ink"
+      className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-ink-2 transition-colors hover:bg-surface-1 hover:text-ink"
     >
       {/* render nothing until mounted, so server and client markup match */}
       {theme === "dark" ? (

@@ -32,22 +32,30 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <header className="sticky top-0 z-40 border-b border-border bg-surface-0/85 backdrop-blur supports-[backdrop-filter]:bg-surface-0/75">
           <nav className="mx-auto flex h-14 max-w-6xl sm:h-16 items-center gap-4 px-4 sm:gap-8">
-            <Link href="/" aria-label="Bold Analytics home" className="flex items-center">
-              <span className="flex sm:hidden"><LogoStacked height={38} /></span>
+            <Link href="/" aria-label="Bold Analytics home" className="flex shrink-0 items-center">
+              <span className="flex sm:hidden"><LogoStacked height={32} /></span>
               <span className="hidden sm:flex"><Logo height={30} /></span>
             </Link>
             <div className="flex h-full items-stretch gap-4 sm:gap-6">
-              <NavLink href="/dashboards" match="/dashboards">Dashboards</NavLink>
-              <NavLink href="/visualizations" match="/visualizations">Visualizations</NavLink>
+              <NavLink href="/dashboards" match="/dashboards" icon="dashboards">Dashboards</NavLink>
+              <NavLink href="/visualizations" match="/visualizations" icon="visualizations">Visualizations</NavLink>
             </div>
-            <ThemeToggle />
+            <div className="ml-auto hidden sm:flex">
+              <ThemeToggle />
+            </div>
           </nav>
         </header>
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-5 sm:py-8">{children}</main>
         <footer className="border-t border-border">
-          <div className="mx-auto max-w-6xl px-4 py-6 text-xs text-ink-3">
+          <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-6 text-xs text-ink-3">
+            {/* on phones the theme toggle lives here, the header has no room */}
+            <div className="order-last ml-auto sm:hidden">
+              <ThemeToggle />
+            </div>
+            <p>
             For informational purposes only, not financial advice. Data via{" "}
             <a href="https://dune.com" className="underline hover:text-ink-2">Dune</a>. All times UTC.
+          </p>
           </div>
         </footer>
         {/* visitor counts for /beheer (lib/tracking.ts); usePathname needs a Suspense boundary with cacheComponents */}

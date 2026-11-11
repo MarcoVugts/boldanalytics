@@ -30,8 +30,8 @@ const R = "/stories/record-day";
 // Hero row: three visuals from the latest data story (square, 600px). Video is a short muted loop (~2MB).
 const VISUALS = [
   { video: `${R}/hero-loop.mp4`, img: `${R}/hero-loop-poster.jpg`, caption: "Every trade of a day, one dot each" },
-  { img: `${R}/trading-never-sleeps-600.jpg`, caption: "Activity per hour, around the clock" },
-  { img: `${R}/how-a-market-maker-trades-600.jpg`, caption: "One wallet\u2019s behaviour, trade by trade" },
+  { img: `${R}/trading-never-sleeps-1200.jpg`, caption: "Activity per hour, around the clock" },
+  { img: `${R}/how-a-market-maker-trades-1200.jpg`, caption: "One wallet\u2019s behaviour, trade by trade" },
 ];
 
 // Ordered: active teams first, sunset projects after, Abstract last. Logos are monochrome masks in public/clients
