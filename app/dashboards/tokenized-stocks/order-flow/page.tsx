@@ -6,9 +6,9 @@ import { getByEntryContract, getOverview } from "@/lib/queries/trades";
 import { getFlows, getPressure, HF_TRADES_PER_DAY } from "@/lib/queries/flows";
 import { GroupTable, LabelNote } from "../shared";
 
-export const metadata: Metadata = { title: "Liquidity flow · Tokenized Stocks on Base" };
+export const metadata: Metadata = { title: "Order flow · Tokenized Stocks on Base" };
 
-export default async function LiquidityFlow() {
+export default async function OrderFlow() {
   const [overview, flows, pressure, entries] = await Promise.all([getOverview(), getFlows(), getPressure(), getByEntryContract()]);
   if (!overview?.last_day) return null;
   const range = { asOf: overview.last_day ?? undefined, from: overview.first_day ?? undefined };

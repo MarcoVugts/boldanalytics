@@ -7,7 +7,7 @@ export const BASE = "/dashboards/tokenized-stocks";
 export const TABS = [
   { href: BASE, label: "Overview" },
   { href: `${BASE}/volume`, label: "Volume" },
-  { href: `${BASE}/liquidity-flow`, label: "Liquidity flow" },
+  { href: `${BASE}/order-flow`, label: "Order flow" },
   { href: `${BASE}/traders`, label: "Traders" },
   { href: `${BASE}/visuals`, label: "Visuals" },
 ];

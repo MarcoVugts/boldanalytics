@@ -47,7 +47,7 @@ export default async function Overview() {
 
   const dives = [
     { href: `${BASE}/volume`, title: "Volume", text: "Per day, per week, per stock and per DEX." },
-    { href: `${BASE}/liquidity-flow`, title: "Liquidity flow", text: "How volume flows from wallets via apps and DEXs to stocks, and where buying or selling dominates." },
+    { href: `${BASE}/order-flow`, title: "Order flow", text: "How volume flows from wallets via apps and DEXs to stocks, and where buying or selling dominates." },
     { href: `${BASE}/traders`, title: "Traders", text: "Active wallets, which stocks are traded together and who trades what." },
     { href: `${BASE}/visuals`, title: "Visuals", text: "The record day in motion and other visuals, ready to share." },
   ];
