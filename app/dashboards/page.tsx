@@ -1,6 +1,8 @@
 /* eslint-disable @next/next/no-img-element */
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
+import { SankeyPreview } from "@/components/SankeyPreview";
 
 export const metadata: Metadata = {
   title: "Dashboards",
@@ -27,9 +29,11 @@ export default function Dashboards() {
       <div className="grid gap-4 md:grid-cols-2">
         {DASHBOARDS.map((d) => (
           <Link key={d.href} href={d.href} className="group flex flex-col overflow-hidden rounded-lg border border-border bg-surface-1">
-            <div className="relative">
-              <img src={d.img} alt={d.alt} className="block aspect-[16/10] w-full bg-[#f8f0e8] object-cover object-top" />
-              <span className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-surface-1/90 px-2.5 py-1 text-xs font-medium text-ink shadow-sm">
+            <div className="relative border-b border-border">
+              <Suspense fallback={<div className="aspect-[16/10] w-full bg-surface-0" />}>
+                <SankeyPreview fallback={{ src: d.img, alt: d.alt }} />
+              </Suspense>
+              <span className="absolute right-3 top-3 flex items-center gap-1.5 rounded-full bg-surface-1/90 px-2.5 py-1 text-xs font-medium text-ink shadow-sm">
                 <span className="size-1.5 rounded-full bg-good" /> Live
               </span>
             </div>

@@ -1,5 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
+import { Suspense } from "react";
+import { SankeyPreview } from "@/components/SankeyPreview";
 import { DashboardArt, ReportArt, VisualizationArt } from "@/components/ServiceArt";
 
 // "How we work": three steps from question to the right format.
@@ -129,7 +131,7 @@ export default function Home() {
         <div className="flex flex-wrap gap-3">
           <a href="#work" className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-surface-1 hover:opacity-90">See our work</a>
           <Link href="/dashboards/tokenized-stocks" className="rounded-md border border-border px-4 py-2 text-sm font-medium text-ink-2 hover:bg-surface-1 hover:text-ink">
-            <span className="hidden sm:inline">Data story: </span>Tokenized Stocks →
+            <span className="hidden sm:inline">Dashboard: </span>Tokenized Stocks →
           </Link>
         </div>
       </section>
@@ -209,15 +211,19 @@ export default function Home() {
       <section id="work" className="scroll-mt-24 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">Latest work</h2>
         <Link href="/dashboards/tokenized-stocks" className="group grid overflow-hidden rounded-lg border border-border bg-surface-1 md:grid-cols-2">
-          <img src="/stories/record-day/stock-race-poster.jpg" alt="Cumulative volume per tokenized stock through the record day" className="block w-full bg-[#f8f0e8]" />
+          <div className="border-b border-border md:border-b-0 md:border-r">
+            <Suspense fallback={<div className="aspect-[16/10] w-full bg-surface-0" />}>
+              <SankeyPreview fallback={{ src: "/stories/record-day/stock-race-poster.jpg", alt: "Cumulative volume per tokenized stock through the record day" }} />
+            </Suspense>
+          </div>
           <div className="flex flex-col justify-center gap-3 p-6">
-            <div className="text-xs font-medium uppercase tracking-wider text-ink-3">Data story</div>
+            <div className="text-xs font-medium uppercase tracking-wider text-ink-3">Live dashboard</div>
             <h3 className="text-xl font-bold tracking-tight">Tokenized stocks on Base</h3>
             <p className="text-sm text-ink-2">
               Who trades tokenized stocks onchain? Daily volume, the market makers behind it and a record day of $150M, shown
               trade by trade.
             </p>
-            <span className="text-sm font-medium group-hover:underline">Read the story →</span>
+            <span className="text-sm font-medium group-hover:underline">Open dashboard →</span>
           </div>
         </Link>
       </section>

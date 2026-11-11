@@ -12,19 +12,20 @@ type L = { source: string; target: string; value: number };
 
 const STAGES = ["Wallet type", "App / operator", "DEX", "Stock"];
 
-/** Volume flow: wallet type → contract called (app/router) → DEX venue → stock. */
-export function FlowSankey({ rows }: { rows: FlowRow[] }) {
+/** Volume flow: wallet type → contract called (app/router) → DEX venue → stock.
+ *  `preview`: fixed layout scaled to the container width, no interaction (cards on the homepage/overview). */
+export function FlowSankey({ rows, preview = false }: { rows: FlowRow[]; preview?: boolean }) {
   const [ref, width] = useWidth<HTMLDivElement>(720);
   const [hover, setHover] = useState<string | null>(null);
   const [tip, setTip] = useState<{ x: number; y: number; text: string; sub: string } | null>(null);
 
   const exp = useExport();
   // Image export: use the card width as is (no horizontal scroll) and more height for the labels.
-  const W = exp.exporting ? Math.max(420, width) : Math.max(640, width);
-  const H = exp.exporting ? (exp.format === "portrait" ? 720 : 600) : 480;
+  const W = preview ? 900 : exp.exporting ? Math.max(420, width) : Math.max(640, width);
+  const H = preview ? 560 : exp.exporting ? (exp.format === "portrait" ? 720 : 600) : 480;
   // Stock labels sit to the right of the last column, so every gap holds one column of labels.
-  const RIGHT = exp.exporting ? 150 : 170;
-  const fs = exp.exporting ? 13 : 11;
+  const RIGHT = preview ? 160 : exp.exporting ? 150 : 170;
+  const fs = preview || exp.exporting ? 13 : 11;
 
   const graph = useMemo(() => {
     const nodes = new Map<string, N>();
@@ -80,9 +81,16 @@ export function FlowSankey({ rows }: { rows: FlowRow[] }) {
   const stageX = [0, 1, 2, 3].map((s) => graph.nodes.find((n) => n.stage === s)?.x0 ?? 0);
 
   return (
-    <div className={exp.exporting ? "" : "overflow-x-auto"}>
-      <div ref={ref} className={`relative ${exp.exporting ? "" : "min-w-[640px]"}`} onMouseLeave={() => { setHover(null); setTip(null); }}>
-        <svg width={W} height={H} role="img" aria-label="Volume flow from wallet type through app and DEX to stock">
+    <div className={exp.exporting || preview ? "" : "overflow-x-auto"}>
+      <div ref={ref} className={`relative ${preview ? "pointer-events-none" : exp.exporting ? "" : "min-w-[640px]"}`} onMouseLeave={() => { setHover(null); setTip(null); }}>
+        <svg
+          width={preview ? undefined : W}
+          height={preview ? undefined : H}
+          viewBox={`0 0 ${W} ${H}`}
+          className={preview ? "block h-auto w-full" : undefined}
+          role="img"
+          aria-label="Volume flow from wallet type through app and DEX to stock"
+        >
           {STAGES.map((s, i) => (
             <text key={s} x={stageX[i]} y={12} textAnchor="start" fontSize={fs} fontWeight={600} fill="var(--text-muted)">
               {s}
