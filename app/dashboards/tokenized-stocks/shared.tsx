@@ -50,6 +50,7 @@ export function GroupTable({ rows, label, mono }: { rows: GroupRow[]; label: str
 export const KIND: Record<string, string> = {
   market_maker: "market maker",
   dex_router: "DEX router",
+  app: "app",
   aggregator: "aggregator",
   smart_wallet: "smart wallets",
   bridge: "bridge",

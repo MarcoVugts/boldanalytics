@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import { db, hasDb } from "@/lib/db";
-import { hasMd, md } from "@/lib/md";
+import { hasMd, md, mdQuery } from "@/lib/md";
 
 // Plain-text snapshot of /ops (fresh, uncached) to paste into a chat or issue.
 // Contains no secrets: run log, credits, MotherDuck stats and the event log.
@@ -76,9 +76,9 @@ export async function GET() {
       typeof behaviour === "string" ? behaviour : table(behaviour),
     );
 
-    // Contracts without a label, biggest first: candidates to look up (Blockscout / Basescan / OLI) and add to app_labels.
-    const unlabeled = await safe(() =>
-      md<Record<string, unknown>>`
+    // Contracts without a label: candidates to look up (Sourcify / Dune / Basescan) and add to app_labels.
+    // Two lists: by wallets (apps with many users) and by volume (bots and trading firms with few wallets).
+    const unlabeledSql = (order: "wallets" | "volume") => `
         WITH t AS (
           SELECT r.tx_to, r.dex, t.day, t.wallet, t.symbol, t.trades, t.swaps,
                  COALESCE(t.buy_usd, 0) AS b, COALESCE(t.sell_usd, 0) AS s
@@ -103,15 +103,17 @@ export async function GET() {
                strftime(MAX(t.day), '%Y-%m-%d') AS last_day
         FROM t CROSS JOIN tot JOIN top_w USING (tx_to)
         GROUP BY t.tx_to
-        ORDER BY wallets DESC
-        LIMIT 25`,
-    );
-    out.push(
-      "",
-      "## Unlabeled contracts (top 25 by wallets, all loaded days)",
-      "tx_to = contract the transaction called · top_sender_pct = share of volume from the single biggest wallet (high = one bot) · swaps_per_tx > 1 = routed over several pools",
-      typeof unlabeled === "string" ? unlabeled : table(unlabeled),
-    );
+        ORDER BY ${order === "wallets" ? "wallets" : "volume_m"} DESC
+        LIMIT 25`;
+    for (const order of ["wallets", "volume"] as const) {
+      const rows = await safe(() => mdQuery<Record<string, unknown>>(unlabeledSql(order)));
+      out.push(
+        "",
+        `## Unlabeled contracts (top 25 by ${order}, all loaded days)`,
+        "tx_to = contract the transaction called · top_sender_pct = share of volume from the single biggest wallet (high = one bot) · swaps_per_tx > 1 = routed over several pools",
+        typeof rows === "string" ? rows : table(rows),
+      );
+    }
   }
 
   if (hasDb()) {

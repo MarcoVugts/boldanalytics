@@ -20,6 +20,31 @@ const MANUAL = {
     note: "I2451D; admin is EOA 0x00ff842be7e390605e7e3664ebfa0e432806500d; net 0.3% per stock, active since mid-Oct" },
   "0x61040e143a77f165ba44543af4a079f2c809d14b": { label: "Unlabeled bot", kind: "bot", confidence: "suspected",
     note: "I2451bt; EIP-1967 proxy -> 0x8077dc1b, admin slot empty" },
+  // 2026-11-12: top unlabeled contracts by wallets (/ops export). Sources: Sourcify verified source, Dune base.contracts /
+  // labels.addresses / creation_traces, Basescan creator. See data/labels/unlabeled-2026-11-12.md.
+  ...Object.fromEntries([
+    "0xb92fe925dc43a0ecde6c8b1a2709c170ec4fff4f", "0xccc88a9d1b4ed6b0eaba998850414b24f1c315be",
+    "0x5567954cd026cebfe486062cb75848e0f1c12e58", "0x0729e2a4716d9f7dd17858d5d504426d228697f7",
+  ].map((a) => [a, { label: "Relay", kind: "aggregator", confidence: "confirmed",
+    note: "Sourcify: RelayRouter(V3) / RelayApprovalProxy(V3); Dune: relay.RelayRouterV3 (labels: Relay); CREATE2 deployer" }])),
+  "0xd6145b2d3f379919e8cdeda7b97e37c4b2ca9c40": { label: "Uniswap", kind: "dex_router", confidence: "confirmed",
+    note: "Sourcify: UniversalRouter; same deployer 0x2179a608 as labeled Uniswap UniversalRouter 0x6ff5693b" },
+  "0xfdf682f51fe81aa4898f0ae2163d8a55c127fbc7": { label: "Uniswap", kind: "dex_router", confidence: "confirmed",
+    note: "Dune: uniswap.UniversalRouter (labels: Uniswap: UniversalRouter)" },
+  "0xc8f6b8ba0dc0f175b568b99440b0867f69a29265": { label: "OKX DEX", kind: "aggregator", confidence: "confirmed",
+    note: "Dune: okx_dex.DexRouter; Sourcify: contracts/8/DexRouter.sol" },
+  "0x89c6340b1a1f4b25d36cd8b063d49045caf3f818": { label: "LI.FI", kind: "aggregator", confidence: "attributed",
+    note: "Sourcify: src/Periphery/Permit2Proxy.sol (LI.FI contracts layout); no Dune/Basescan name" },
+  "0x698cb2b6dd822994581fea6ea4fc755d1363a92f": { label: "Aerodrome", kind: "dex_router", confidence: "suspected",
+    note: "Sourcify: contracts/periphery/SwapRouter.sol (Slipstream layout), Aerodrome-only; deployer 0x2bbfa3f3 differs from known Aerodrome deployers" },
+  // One deployer (0x0bc6e9f2714ef2f3d586e5167dc282119a0edcd8) rolls out a new unverified router every few weeks since May
+  // 2026; each has thousands of wallets with small trades. Identity unknown.
+  ...Object.fromEntries([
+    "0xd0a40c6526acdebd4f6d87931098ff37a9f8e4bf", "0xbce80645b0e9b0ab52648b0d23f37db56616ea93",
+    "0x22380f853f01059cc3775a83f66fadd43d435e67", "0x9177309cf7b963378943c680f4557b520683653b",
+    "0x80656aa3142a935c25f730ea82de114ef4a57479", "0xf849e0d4a7a1d74cb278361ff29967dfb5a22c67",
+  ].map((a) => [a, { label: "Unknown app A", kind: "app", confidence: "suspected",
+    note: "rotating router, deployer 0x0bc6e9f2 (Dune creation_traces/Basescan); unverified; many wallets, small trades" }])),
 };
 
 // Dune contract namespace -> [label, kind]
