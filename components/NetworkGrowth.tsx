@@ -47,9 +47,8 @@ export function NetworkGrowth({ g }: { g: GrowthGraph }) {
     for (const e of OD) for (let i = 0; i < N; i++) dayTot[i] += e.d[i];
     const cumTot = new Float64Array(N);
     { let s = 0; for (let i = 0; i < N; i++) { s += dayTot[i]; cumTot[i] = s; } }
-    const walletsBy = new Int32Array(N);
-    for (const wl of g.wallets) walletsBy[wl[1]]++;
-    const walletsCum = new Int32Array(N);
+    const walletsBy = Float64Array.from(g.newWallets);
+    const walletsCum = new Float64Array(N);
     { let s = 0; for (let i = 0; i < N; i++) { s += walletsBy[i]; walletsCum[i] = s; } }
     const maxEdge = Math.max(1, ...OD.map((e) => e.c[N - 1]), ...DS.map((e) => e.c[N - 1]));
     return { OD, DS, opC: node(OD, "a", g.ops.length), dexC: node(OD, "b", g.dexes.length), stC: node(DS, "b", g.stocks.length), dayTot, cumTot, walletsCum, maxEdge };
@@ -193,7 +192,7 @@ export function NetworkGrowth({ g }: { g: GrowthGraph }) {
             <li key={l} className="flex items-center gap-1.5"><span className="size-2.5 rounded-full" style={{ background: c }} />{l}</li>
           ))}
         </ul>
-        <span>{g.days[0]} → {g.days[N - 1]} (UTC){g.walletsTotal > g.wallets.length ? ` · largest ${g.wallets.length.toLocaleString("en-US")} of ${g.walletsTotal.toLocaleString("en-US")} wallets shown` : ""}</span>
+        <span>{g.days[0]} → {g.days[N - 1]} (UTC){g.perDot > 1 ? ` · 1 dot ≈ ${g.perDot} wallets` : ""}</span>
       </div>
     </div>
   );

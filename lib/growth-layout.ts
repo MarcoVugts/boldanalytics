@@ -7,7 +7,8 @@ import type { Growth } from "./queries/growth";
 
 export const GW = 1200, GH = 860;
 export type Hub = { name: string; kind?: string; x: number; y: number; r: number; vol: number; first: number };
-/** wallets: [opIndex, firstDayIndex, x, y, r]; edges: [aIndex, bIndex, dayIndex, volume] */
+/** wallets: one dot per `perDot` wallets: [opIndex, firstDayIndex, x, y, r]; edges: [aIndex, bIndex, dayIndex, volume]
+ *  newWallets: real number of new wallets per day (for the counter). */
 export type GrowthGraph = {
   days: string[];
   ops: Hub[];
@@ -17,9 +18,11 @@ export type GrowthGraph = {
   opDex: [number, number, number, number][];
   dexStock: [number, number, number, number][];
   walletsTotal: number;
+  perDot: number;
+  newWallets: number[];
 };
 
-const MAX_WALLETS = 8000;
+const MAX_DOTS = 7000;
 const r1 = (n: number) => Math.round(n * 10) / 10;
 const TOP = 70, BOTTOM = GH - 40;
 const OP_X = 520, DEX_X = 700, ST_X = 930;
@@ -57,9 +60,18 @@ export function layoutGrowth(g: Growth): GrowthGraph {
   // column is then re-ordered to match the clouds' vertical order, so every cloud sits next to its own hub.
   let order: typeof g.ops = [];
   [...g.ops].sort((a, b) => b.vol - a.vol).forEach((o, i) => (i % 2 ? order.push(o) : order.unshift(o)));
-  const walletsIn = [...g.wallets].sort((a, b) => b.vol - a.vol).slice(0, MAX_WALLETS);
+  // one dot per `perDot` wallets (a round number), so every wallet is represented while the canvas stays fast
+  const walletsTotal = g.wallets.reduce((a, w) => a + w.n, 0);
+  const perDot = [1, 2, 5, 10, 20, 25, 50, 100, 200, 500, 1000].find((k) => walletsTotal / k <= MAX_DOTS) ?? Math.ceil(walletsTotal / MAX_DOTS);
+  const newWallets = g.days.map(() => 0);
   const byOp = new Map<string, { f: number; vol: number }[]>(g.ops.map((o) => [o.name, []]));
-  for (const w of walletsIn) (byOp.get(w.op) ?? byOp.set(w.op, []).get(w.op)!).push({ f: dayIx.get(w.first) ?? 0, vol: w.vol });
+  for (const w of g.wallets) {
+    const f = dayIx.get(w.first) ?? 0;
+    newWallets[f] += w.n;
+    const dots = Math.max(1, Math.round(w.n / perDot));
+    for (let k = 0; k < dots; k++) (byOp.get(w.op) ?? byOp.set(w.op, []).get(w.op)!).push({ f, vol: w.vol / dots });
+  }
+  const walletsIn = [...byOp.values()].flat();
   const bandArea = (CLUSTER_RIGHT - CLUSTER_LEFT) * (BOTTOM - TOP + 40);
   const s = Math.min(9, Math.max(2.6, Math.sqrt((bandArea * 0.5) / Math.max(1, walletsIn.length))));
   const c = 0.53 * s; // sunflower: radius of point k = c * sqrt(k)
@@ -121,6 +133,8 @@ export function layoutGrowth(g: Growth): GrowthGraph {
     wallets,
     opDex: g.opDex.map((e) => [opIx.get(e.a) ?? 0, dexIx.get(e.b) ?? 0, dayIx.get(e.day) ?? 0, Math.round(e.vol)]),
     dexStock: g.dexStock.map((e) => [dexIx.get(e.a) ?? 0, stIx.get(e.b) ?? 0, dayIx.get(e.day) ?? 0, Math.round(e.vol)]),
-    walletsTotal: g.wallets.length,
+    walletsTotal,
+    perDot,
+    newWallets,
   };
 }

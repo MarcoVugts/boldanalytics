@@ -7,7 +7,8 @@ import { hasMd, mdQuery } from "../md";
 
 export type GrowthOp = { name: string; kind: string; first: string; vol: number };
 export type GrowthNode = { name: string; first: string; vol: number };
-export type GrowthWallet = { op: string; first: string; vol: number };
+/** Wallets grouped by main operator and first trading day: n wallets, their total volume. */
+export type GrowthWallet = { op: string; first: string; n: number; vol: number };
 export type GrowthEdge = { a: string; b: string; day: string; vol: number };
 export type Growth = { days: string[]; ops: GrowthOp[]; dexes: GrowthNode[]; stocks: GrowthNode[]; wallets: GrowthWallet[]; opDex: GrowthEdge[]; dexStock: GrowthEdge[] };
 
@@ -45,9 +46,13 @@ export async function getGrowth(opts = { ops: 12, dexes: 5, stocks: 14 }): Promi
     q<GrowthNode>(`SELECT dex AS name, strftime(MIN(day), '%Y-%m-%d') AS first, SUM(v)::float8 AS vol FROM b GROUP BY dex ORDER BY vol DESC`),
     q<GrowthNode>(`SELECT symbol AS name, strftime(MIN(day), '%Y-%m-%d') AS first, SUM(v)::float8 AS vol FROM b GROUP BY symbol ORDER BY vol DESC`),
     q<GrowthWallet>(`
-      SELECT arg_max(op, ov) AS op, strftime(MIN(first), '%Y-%m-%d') AS first, SUM(ov)::float8 AS vol
-      FROM (SELECT wallet, op, MIN(day) AS first, SUM(v) AS ov FROM b GROUP BY 1, 2)
-      GROUP BY wallet HAVING SUM(ov) > 0`),
+      SELECT op, strftime(first, '%Y-%m-%d') AS first, COUNT(*)::int AS n, SUM(vol)::float8 AS vol
+      FROM (
+        SELECT arg_max(op, ov) AS op, MIN(first) AS first, SUM(ov) AS vol
+        FROM (SELECT wallet, op, MIN(day) AS first, SUM(v) AS ov FROM b GROUP BY 1, 2)
+        GROUP BY wallet HAVING SUM(ov) > 0
+      )
+      GROUP BY 1, 2`),
     q<GrowthEdge>(`SELECT op AS a, dex AS b, strftime(day, '%Y-%m-%d') AS day, SUM(v)::float8 AS vol FROM b GROUP BY 1, 2, 3 HAVING SUM(v) > 0`),
     q<GrowthEdge>(`SELECT dex AS a, symbol AS b, strftime(day, '%Y-%m-%d') AS day, SUM(v)::float8 AS vol FROM b GROUP BY 1, 2, 3 HAVING SUM(v) > 0`),
   ]);
