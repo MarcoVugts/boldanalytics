@@ -86,7 +86,7 @@ export function NetworkGrowth({ g }: { g: GrowthGraph }) {
     const step = (now: number) => {
       const dt = now - last; last = now;
       setT((cur) => {
-        const next = Math.min(1, cur + dt / DURATION);
+        const next = Math.min(1, Math.max(0, cur + Math.max(0, dt) / DURATION));
         if (next >= 1) setPlaying(false);
         return next;
       });
@@ -107,7 +107,7 @@ export function NetworkGrowth({ g }: { g: GrowthGraph }) {
     const ctx = cv.getContext("2d")!;
     ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
     const T = theme;
-    const f = Math.min(N - 1, t * (N - 1)), i = Math.floor(f), frac = f - i;
+    const f = Math.max(0, Math.min(N - 1, t * (N - 1))), i = Math.floor(f), frac = f - i;
     const at = (arr: Float64Array) => arr[i] + (i + 1 < N ? (arr[i + 1] - arr[i]) * frac : 0);
     const kc = (k?: string) => (k === "market_maker" ? T.mm : k === "unknown" || k === "other" || k === "bot" ? T.other : T.app);
     const W = (v: number) => Math.max(0.6, Math.sqrt(v / prep.maxEdge) * 26);
@@ -139,7 +139,7 @@ export function NetworkGrowth({ g }: { g: GrowthGraph }) {
       const op = g.ops[o], c = kc(op.kind);
       const pop = Math.min(1, age / 0.6), fresh = Math.max(0, 1 - age / 2.5);
       if (fresh > 0) { ctx.globalAlpha = 0.25 * fresh; ctx.strokeStyle = c; ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(op.x, op.y); ctx.stroke(); ctx.globalAlpha = 1; }
-      dot(x, y, r * (0.4 + 0.6 * pop) + fresh * 1.6, c, 0.55 + 0.45 * fresh);
+      dot(x, y, r * (0.4 + 0.6 * pop) + fresh * 1.2, c, 0.6 + 0.4 * fresh);
     }
     const hub = (n: { x: number; y: number; r: number; vol: number }, c: Float64Array, col: string, minR: number) => {
       const v = at(c); if (v <= 0) return 0;
@@ -147,11 +147,11 @@ export function NetworkGrowth({ g }: { g: GrowthGraph }) {
       dot(n.x, n.y, r + 3, T.bg); dot(n.x, n.y, r, col); return r;
     };
     g.ops.forEach((o, k) => { const r = hub(o, prep.opC[k], kc(o.kind), 4); if (r) label(o.name.replace("Unknown market maker", "Market maker"), o.x - r - 8, o.y + 5, `600 ${fz(17)}px ${font}`, T.ink, "right"); });
-    g.dexes.forEach((d, k) => { const r = hub(d, prep.dexC[k], T.dex, 4); if (r && d.vol > 0.02 * prep.cumTot[N - 1]) label(d.name, d.x, d.y - r - 8, `600 ${fz(15)}px ${font}`, T.ink2, "center"); });
+    g.dexes.forEach((d, k) => { const r = hub(d, prep.dexC[k], T.dex, 4); if (r) label(d.name, d.x, d.y - r - 7, `600 ${fz(13)}px ${font}`, T.ink2, "center"); });
     g.stocks.forEach((s, k) => { const r = hub(s, prep.stC[k], T.stock, 3); if (r) label(s.name, s.x + r + 8, s.y + 5, `600 ${fz(15)}px ${font}`, T.ink, "left"); });
   }, [t, theme, w, g, N, prep]);
 
-  const i = Math.min(N - 1, Math.floor(t * (N - 1)));
+  const i = Math.max(0, Math.min(N - 1, Math.floor(t * (N - 1))));
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -174,7 +174,7 @@ export function NetworkGrowth({ g }: { g: GrowthGraph }) {
       </div>
       {/* phones: keep a readable minimum width and scroll sideways */}
       <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-        <div ref={box} className="w-full min-w-[640px]">
+        <div ref={box} className="w-full min-w-[680px]">
           <canvas ref={canvas} style={{ width: "100%", height: (GH * w) / GW }} role="img" aria-label="Network of wallets, operators, DEXs and stocks growing day by day" />
         </div>
       </div>
