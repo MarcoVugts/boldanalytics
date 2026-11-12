@@ -83,7 +83,7 @@ export async function GET() {
           SELECT r.tx_to, r.dex, t.day, t.wallet, t.symbol, t.trades, t.swaps,
                  COALESCE(t.buy_usd, 0) AS b, COALESCE(t.sell_usd, 0) AS s
           FROM trades_daily t JOIN routes_labeled r USING (route)
-          WHERE r.app = 'Unlabeled'
+          WHERE r.app = 'Unlabeled' OR r.app LIKE 'Unknown 0x%'
         ),
         tot AS (SELECT COUNT(DISTINCT wallet) AS w, SUM(b + s) AS v FROM t),
         per_wallet AS (SELECT tx_to, wallet, SUM(b + s) AS v FROM t GROUP BY 1, 2),

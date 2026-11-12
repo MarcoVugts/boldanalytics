@@ -128,7 +128,7 @@ export function FlowSankey({ rows, preview = false }: { rows: FlowRow[]; preview
             return (
               <g key={n.id} opacity={dim ? 0.35 : 1} onMouseEnter={() => setHover(n.id)}>
                 <rect x={n.x0} y={n.y0} width={(n.x1 ?? 0) - (n.x0 ?? 0)} height={h} rx={2}
-                  fill={n.label.startsWith("Other") || n.label === "unknown" || n.label.startsWith("Unlabeled") || n.label === "Unknown" ? "var(--neutral-mark)" : n.stage === 0 && n.label === "High-frequency" ? "var(--series-2)" : "var(--series-1)"} />
+                  fill={n.label.startsWith("Other") || n.label === "unknown" || n.label.startsWith("Unlabeled") || n.label.startsWith("Unknown 0x") || n.label === "Unknown" ? "var(--neutral-mark)" : n.stage === 0 && n.label === "High-frequency" ? "var(--series-2)" : "var(--series-1)"} />
                 {h > 9 && (() => {
                   // Name on one line, "$value · share" below it when the block is tall enough.
                   const x = (n.x1 ?? 0) + 6;

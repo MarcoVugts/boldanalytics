@@ -15,6 +15,7 @@
 import { db } from "./db";
 import { logEvent } from "./events";
 import { addr, md, mdTx, raw, sqlText } from "./md";
+import { UNKNOWN_ROUTES_SQL } from "./unknown-routes";
 import {
   estimateExportCredits,
   executeQuery,
@@ -259,6 +260,8 @@ export async function runIngest(
   }
 
   await finish(runId, status, "completed", loaded);
+  // keep the "Unknown 0x…" groups in step with the new data (cheap; failure must not fail the run)
+  await mdTx((exec) => exec(UNKNOWN_ROUTES_SQL)).catch((e) => logEvent("load", `unknown_routes refresh failed: ${String(e).slice(0, 160)}`));
   const usage = await getUsage();
   if (usage) {
     await sql`UPDATE dune_runs SET period_credits_used = ${usage.used}, period_credits_included = ${usage.included} WHERE id = ${runId}`;
