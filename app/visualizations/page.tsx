@@ -1,6 +1,8 @@
 /* eslint-disable @next/next/no-img-element */
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
+import { NetworkGrowthCard } from "@/components/NetworkGrowthCard";
 
 export const metadata: Metadata = {
   title: "Visualizations",
@@ -57,6 +59,9 @@ export default function Visualizations() {
         <p className="text-ink-2">Charts and animations that tell the story at a glance, made to be understood and shared.</p>
         <p className="text-sm text-ink-3">Free to download and share, with credit to Bold Analytics.</p>
       </header>
+      <Suspense fallback={<div className="h-96 rounded-lg border border-border bg-surface-1" />}>
+        <NetworkGrowthCard />
+      </Suspense>
       <div className="grid gap-4 md:grid-cols-3">
         {VIZ.map((v) => (
           <figure key={v.title} className={`flex flex-col overflow-hidden rounded-lg border border-border bg-surface-1 ${v.wide ? "md:col-span-3 md:grid md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" : ""}`}>

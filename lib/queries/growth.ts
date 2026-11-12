@@ -53,3 +53,14 @@ export async function getGrowth(opts = { ops: 12, dexes: 5, stocks: 14 }): Promi
   ]);
   return { days: days.map((d) => d.day), ops: plain(ops), dexes: plain(dexes), stocks: plain(stocks), wallets: plain(wallets), opDex: plain(opDex), dexStock: plain(dexStock) };
 }
+
+/** Positioned, compact graph for the browser (layout computed once per cache period). */
+export async function getGrowthGraph() {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("trades");
+  const g = await getGrowth();
+  if (!g || !g.days.length) return null;
+  const { layoutGrowth } = await import("../growth-layout");
+  return layoutGrowth(g);
+}
