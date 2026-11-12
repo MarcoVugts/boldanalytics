@@ -75,6 +75,43 @@ export async function GET() {
       "net_pct = (buy - sell) / volume over the whole period · daily_abs_net_pct = average one-sidedness per day · per_stock_abs_net_pct = one-sidedness per stock · swaps_per_tx > 1 = routed over several pools",
       typeof behaviour === "string" ? behaviour : table(behaviour),
     );
+
+    // Contracts without a label, biggest first: candidates to look up (Blockscout / Basescan / OLI) and add to app_labels.
+    const unlabeled = await safe(() =>
+      md<Record<string, unknown>>`
+        WITH t AS (
+          SELECT r.tx_to, r.dex, t.day, t.wallet, t.symbol, t.trades, t.swaps,
+                 COALESCE(t.buy_usd, 0) AS b, COALESCE(t.sell_usd, 0) AS s
+          FROM trades_daily t JOIN routes_labeled r USING (route)
+          WHERE r.app = 'Unlabeled'
+        ),
+        tot AS (SELECT COUNT(DISTINCT wallet) AS w, SUM(b + s) AS v FROM t),
+        per_wallet AS (SELECT tx_to, wallet, SUM(b + s) AS v FROM t GROUP BY 1, 2),
+        top_w AS (SELECT tx_to, MAX(v) / NULLIF(SUM(v), 0) AS top_sender FROM per_wallet GROUP BY 1)
+        SELECT t.tx_to,
+               COUNT(DISTINCT t.wallet) AS wallets,
+               ROUND(100.0 * COUNT(DISTINCT t.wallet) / ANY_VALUE(tot.w), 1) AS pct_of_unlabeled_wallets,
+               ROUND(SUM(t.b + t.s) / 1e6, 2) AS volume_m,
+               ROUND(100 * SUM(t.b + t.s) / NULLIF(ANY_VALUE(tot.v), 0), 1) AS pct_of_unlabeled_volume,
+               SUM(t.trades)::BIGINT AS txs,
+               ROUND(SUM(t.swaps) / NULLIF(SUM(t.trades), 0), 2) AS swaps_per_tx,
+               ROUND(100 * (SUM(t.b) - SUM(t.s)) / NULLIF(SUM(t.b + t.s), 0), 1) AS net_pct,
+               ROUND(100 * ANY_VALUE(top_w.top_sender), 1) AS top_sender_pct,
+               COUNT(DISTINCT t.symbol) AS stocks,
+               string_agg(DISTINCT t.dex, ', ') AS dexes,
+               strftime(MIN(t.day), '%Y-%m-%d') AS first_day,
+               strftime(MAX(t.day), '%Y-%m-%d') AS last_day
+        FROM t CROSS JOIN tot JOIN top_w USING (tx_to)
+        GROUP BY t.tx_to
+        ORDER BY wallets DESC
+        LIMIT 25`,
+    );
+    out.push(
+      "",
+      "## Unlabeled contracts (top 25 by wallets, all loaded days)",
+      "tx_to = contract the transaction called · top_sender_pct = share of volume from the single biggest wallet (high = one bot) · swaps_per_tx > 1 = routed over several pools",
+      typeof unlabeled === "string" ? unlabeled : table(unlabeled),
+    );
   }
 
   if (hasDb()) {
