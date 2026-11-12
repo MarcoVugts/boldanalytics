@@ -1,0 +1,96 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face{font-family:Montserrat;font-weight:800;src:url("/home/user/boldanalytics/node_modules/@fontsource/montserrat/files/montserrat-latin-800-normal.woff2")}
+@font-face{font-family:Geist;font-weight:400;src:url("/home/user/boldanalytics/node_modules/geist/dist/fonts/geist-sans/Geist-Regular.woff2")}
+@font-face{font-family:Geist;font-weight:600;src:url("/home/user/boldanalytics/node_modules/geist/dist/fonts/geist-sans/Geist-SemiBold.woff2")}
+html,body{margin:0}
+canvas{display:block}
+</style>
+<script src="graph.js"></script>
+</head><body>
+<canvas id="c" width="1080" height="1080"></canvas>
+<script>
+const DARK = location.search.includes("dark");
+const T = DARK
+  ? { bg: "#141c22", ink: "#f3ece2", ink2: "#b9b4ab", mute: "#7d858a", line: "#2a3740", mm: "#5f93cf", app: "#e8875f", other: "#8d9396", stock: "#f3ece2", dex: "#c9c3b8", halo: "rgba(20,28,34,.85)" }
+  : { bg: "#f8f0e8", ink: "#1e2a32", ink2: "#4b565d", mute: "#79807f", line: "#e2d8ca", mm: "#4678ae", app: "#eb6834", other: "#a9a8a2", stock: "#1e2a32", dex: "#4b565d", halo: "rgba(248,240,232,.9)" };
+const G = window.G, D = G.days, N = D.length;
+const dayIx = Object.fromEntries(D.map((d, i) => [d, i]));
+const kindColor = (k) => (k === "market_maker" ? T.mm : k === "unknown" || k === "other" || k === "bot" ? T.other : T.app);
+const opBy = Object.fromEntries(G.ops.map((o) => [o.name, o]));
+const dexBy = Object.fromEntries(G.dexes.map((o) => [o.name, o]));
+const stBy = Object.fromEntries(G.stocks.map((o) => [o.name, o]));
+// cumulative volume per edge and node, per day index
+function cum(edges) {
+  const m = new Map();
+  for (const e of edges) { const k = e.a + "|" + e.b; if (!m.has(k)) m.set(k, { a: e.a, b: e.b, d: new Float64Array(N) }); m.get(k).d[dayIx[e.day]] += e.vol; }
+  for (const v of m.values()) { v.c = new Float64Array(N); let s = 0; for (let i = 0; i < N; i++) { s += v.d[i]; v.c[i] = s; } }
+  return [...m.values()];
+}
+const OD = cum(G.opDex), DS = cum(G.dexStock);
+const nodeCum = (edges, side) => { const m = {}; for (const e of edges) { const k = e[side]; m[k] ??= new Float64Array(N); for (let i = 0; i < N; i++) m[k][i] += e.c[i]; } return m; };
+const opC = nodeCum(OD, "a"), dexC = nodeCum(OD, "b"), stC = nodeCum(DS, "b");
+const dayTot = new Float64Array(N); for (const e of OD) for (let i = 0; i < N; i++) dayTot[i] += e.d[i];
+const cumTot = new Float64Array(N); { let s = 0; for (let i = 0; i < N; i++) { s += dayTot[i]; cumTot[i] = s; } }
+const maxEdge = Math.max(...OD.map((e) => e.c[N - 1]), ...DS.map((e) => e.c[N - 1]));
+const wFirst = G.wallets.map((w) => dayIx[w.first]);
+const usd = (v) => v >= 1e9 ? "$" + (v / 1e9).toFixed(2) + "B" : v >= 1e6 ? "$" + (v / 1e6).toFixed(v >= 1e8 ? 0 : 1) + "M" : "$" + Math.round(v / 1e3) + "K";
+const fmtDate = (d) => new Date(d + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+const logo = new Image(); logo.src = DARK ? "/home/user/boldanalytics/public/brand/logo-horizontal-on-dark.svg" : "/home/user/boldanalytics/public/brand/logo-horizontal.svg";
+
+function curve(x0, y0, x1, y1, w, color, alpha) {
+  const mx = (x0 + x1) / 2;
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.bezierCurveTo(mx, y0, mx, y1, x1, y1);
+  ctx.strokeStyle = color; ctx.globalAlpha = alpha; ctx.lineWidth = w; ctx.stroke(); ctx.globalAlpha = 1;
+}
+function dot(x, y, r, color, a = 1) { ctx.globalAlpha = a; ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.283); ctx.fill(); ctx.globalAlpha = 1; }
+function label(text, x, y, font, color, align = "left") {
+  ctx.font = font; ctx.textAlign = align; ctx.lineJoin = "round"; ctx.lineWidth = 4; ctx.strokeStyle = T.halo; ctx.strokeText(text, x, y); ctx.fillStyle = color; ctx.fillText(text, x, y);
+}
+
+// p in [0,1] → position on the timeline (fractional day index)
+window.frame = function (p) {
+  const f = Math.min(N - 1, p * (N - 1)), i = Math.floor(f), frac = f - i;
+  const at = (arr) => arr[i] + (i + 1 < N ? (arr[i + 1] - arr[i]) * frac : 0);
+  ctx.fillStyle = T.bg; ctx.fillRect(0, 0, 1080, 1080);
+  const W = (v) => Math.max(0.6, Math.sqrt(v / maxEdge) * 26);
+  // edges: operator → DEX → stock, width = cumulative volume, brighter when busy today
+  for (const e of OD) { const v = at(e.c); if (v <= 0) continue; const o = opBy[e.a], d = dexBy[e.b]; const act = e.d[i] / (dayTot[i] || 1);
+    curve(o.x + o.r * 0.6, o.y, d.x - d.r, d.y, W(v), kindColor(o.kind), 0.18 + Math.min(0.35, act * 1.2)); }
+  for (const e of DS) { const v = at(e.c); if (v <= 0) continue; const d = dexBy[e.a], s = stBy[e.b];
+    curve(d.x + d.r, d.y, s.x - s.r, s.y, W(v), T.dex, 0.16 + Math.min(0.3, (e.d[i] / (dayTot[i] || 1)) * 1.2)); }
+  // wallets: appear on their first day (pop: scale + flash), faint line to their operator
+  for (let k = 0; k < G.wallets.length; k++) {
+    const age = f - wFirst[k]; if (age < 0) continue;
+    const w = G.wallets[k], o = opBy[w.op], c = kindColor(o.kind);
+    const pop = Math.min(1, age / 0.6), fresh = Math.max(0, 1 - age / 2.5);
+    if (fresh > 0) { ctx.globalAlpha = 0.25 * fresh; ctx.strokeStyle = c; ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(w.x, w.y); ctx.lineTo(o.x, o.y); ctx.stroke(); ctx.globalAlpha = 1; }
+    dot(w.x, w.y, w.r * (0.4 + 0.6 * pop) + fresh * 1.6, c, 0.55 + 0.45 * fresh);
+  }
+  // hubs, sized by cumulative volume so far
+  const hub = (n, c, col, minR) => { const v = at(c); if (v <= 0) return null; const r = Math.max(minR, n.r * Math.sqrt(v / n.vol)); dot(n.x, n.y, r + 3, T.bg); dot(n.x, n.y, r, col); return r; };
+  for (const o of G.ops) { const r = hub(o, opC[o.name], kindColor(o.kind), 4); if (r) label(o.name.replace("Unknown market maker", "Market maker"), o.x - r - 8, o.y + 5, "600 17px Geist", T.ink, "right"); }
+  for (const d of G.dexes) { const r = hub(d, dexC[d.name], T.dex, 4); if (r && d.vol > 0.02 * cumTot[N - 1]) label(d.name, d.x, d.y - r - 8, "600 15px Geist", T.ink2, "center"); }
+  for (const s of G.stocks) { const r = hub(s, stC[s.name], T.stock, 3); if (r) label(s.name, s.x + r + 8, s.y + 5, "600 15px Geist", T.ink, "left"); }
+  // header + counters
+  const seen = wFirst.filter((d) => d <= i).length;
+  label("Tokenized stocks on Base", 56, 92, "800 46px Montserrat", T.ink);
+  label("The network grows", 56, 146, "800 46px Montserrat", DARK ? "#9fb4c8" : "#4b565d");
+  label(fmtDate(D[i]), 1024, 92, "800 38px Montserrat", T.ink, "right");
+  label(`${seen.toLocaleString("en-US")} wallets · ${usd(at(cumTot))} traded`, 1024, 128, "600 18px Geist", T.ink2, "right");
+  // legend
+  let lx = 56; const ly = 960;
+  for (const [c, t] of [[T.mm, "Market maker + its wallets"], [T.app, "App / router + its users"], [T.other, "Unlabeled"], [T.stock, "Stock"]]) {
+    dot(lx + 6, ly - 5, 6, c); ctx.font = "15px Geist"; ctx.textAlign = "left"; ctx.fillStyle = T.mute; ctx.fillText(t, lx + 18, ly); lx += ctx.measureText(t).width + 44;
+  }
+  ctx.strokeStyle = T.line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(56, 990); ctx.lineTo(1024, 990); ctx.stroke();
+  if (logo.complete) ctx.drawImage(logo, 56, 1010, 38 * (693.08 / 100) * 0.62, 38 * 0.62);
+  ctx.font = "15px Geist"; ctx.fillStyle = T.mute; ctx.textAlign = "right"; ctx.fillText("Data via Dune · day by day (UTC)", 1024, 1032);
+  window.done = p >= 1;
+};
+Promise.all([document.fonts.load("800 46px Montserrat"), document.fonts.load("600 17px Geist"), document.fonts.load("15px Geist"), new Promise((r) => (logo.onload = r))]).then(() => { window.frame(new URLSearchParams(location.search).has("p") ? +new URLSearchParams(location.search).get("p") : 1); window.ready = true; });
+</script>
+</body></html>
