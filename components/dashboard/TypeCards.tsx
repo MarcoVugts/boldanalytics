@@ -9,14 +9,15 @@ export function TypeCards({ types }: { types: TraderType[] }) {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {types.map((t) => (
-        <section key={t.id} className="flex flex-col rounded-lg border border-border bg-surface-1 p-4">
+        <section key={t.id} className="row-span-6 grid grid-rows-subgrid gap-0 rounded-lg border border-border bg-surface-1 p-4">
           <div className="flex items-center gap-2">
             <span className="size-3 rounded-full" style={{ background: `var(--cat-${t.id + 1})` }} />
             <h3 className="font-semibold">{t.name}</h3>
             {t.rule && <span className="ml-auto rounded bg-surface-0 px-1.5 py-0.5 text-[11px] text-ink-3" title="Set by a fixed rule, not by the clustering">rule-based</span>}
           </div>
-          {t.why.length > 0 && (
-            <div className="mt-2 rounded-md bg-surface-0 p-2.5">
+          {/* subgrid rows: every section lines up across the cards in a row, however many reasons a card has */}
+          {t.why.length > 0 ? (
+            <div className="mt-2 h-[calc(100%-0.5rem)] rounded-md bg-surface-0 p-2.5">
               <div className="text-[11px] font-medium uppercase tracking-wider text-ink-3">Why this group</div>
               <ul className="mt-1 space-y-1 text-xs text-ink-2">
                 {t.why.map((w) => (
@@ -27,6 +28,8 @@ export function TypeCards({ types }: { types: TraderType[] }) {
                 ))}
               </ul>
             </div>
+          ) : (
+            <div />
           )}
           <div className="mt-3 grid grid-cols-2 gap-3">
             <div>
@@ -60,7 +63,7 @@ export function TypeCards({ types }: { types: TraderType[] }) {
             <dt className="text-ink-3">Via market makers</dt><dd className="text-right tabular-nums">{pct(t.mean.mm)}</dd>
             <dt className="text-ink-3">Via apps & aggregators</dt><dd className="text-right tabular-nums">{pct(t.mean.agg)}</dd>
           </dl>
-          <div className="mt-auto pt-3">
+          <div className="self-end pt-3">
             <div className="text-xs text-ink-3">Favourite stocks</div>
             <div className="mt-1 flex flex-wrap gap-2.5">
               {t.topStocks.map((s) => (

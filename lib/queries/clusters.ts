@@ -365,6 +365,11 @@ export function buildTraderTypes(rows: WalletRow[], firstDay: string | null): Tr
     Whales: { text: (t) => `Traded $1M or more (typical wallet in this group: ${usd(t.med.volume)})`, skip: "volume" },
     "Dust & test trades": { text: (t) => `Traded less than $10 in total (typical: ${usd(t.med.volume)})`, skip: "volume" },
   };
+  // the trait a clustered group is named after always comes first
+  const nameKey: Record<string, string> = {
+    "Weekend traders": "weekend", "Crypto-stock traders": "crypto", "Meme-stock traders": "meme", "App users": "agg", "Micro-traders": "avgTrade",
+    "Active traders": "days", "Big traders": "volume", Buyers: "netBuy", Sellers: "netBuy", "One-time buyers": "netBuy", "One-time sellers": "netBuy", "One-time traders": "days",
+  };
   for (const t of types) {
     const rule = ruleOf[t.name];
     const ranked = facts
@@ -374,10 +379,11 @@ export function buildTraderTypes(rows: WalletRow[], firstDay: string | null): Tr
         const mag = f.kind === "log" ? Math.abs(lg(v + 1) - lg(b + 1)) : f.kind === "signed" ? Math.max(0, Math.abs(v) - 0.3) * 2 : Math.abs(v - b) * 2;
         return { f, v, b, mag };
       })
-      .filter((x) => x.mag >= (x.f.kind === "log" ? 0.3 : 0.3))
-      .sort((a, b) => b.mag - a.mag)
+      .filter((x) => x.mag >= 0.3 || x.f.key === nameKey[t.name])
+      .sort((a, b) => (b.f.key === nameKey[t.name] ? 1 : 0) - (a.f.key === nameKey[t.name] ? 1 : 0) || b.mag - a.mag)
       .slice(0, rule ? 2 : 3);
     t.why = [...(rule ? [rule.text(t)] : []), ...ranked.map((x) => x.f.say(x.v, x.b, t))];
+    if (!t.why.length) t.why = ["No single trait stands out: these wallets sit close to the typical wallet on every feature"];
   }
 
   return { types, traits, points, wallets: totW, firstDay };
