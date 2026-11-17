@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ShareCard } from "@/components/ShareCard";
-import { TypeScatter } from "@/components/dashboard/TypeScatter";
+import { TypeBubbles } from "@/components/dashboard/TypeBubbles";
+import { TraitGrid } from "@/components/dashboard/TraitGrid";
 import { TypeCards } from "@/components/dashboard/TypeCards";
 import { int } from "@/lib/format";
 import { getOverview } from "@/lib/queries/trades";
@@ -17,18 +18,22 @@ export default async function TraderTypes() {
       <div className="max-w-3xl space-y-1">
         <h2 className="text-lg font-semibold">Who are the traders?</h2>
         <p className="text-sm text-ink-2">
-          We grouped all {int(tt.wallets)} wallets into {tt.k} types by how they trade: how much and how often, on how many days and how
-          regularly, in how many stocks, the size of their trades, weekend trading and whether they trade through a market maker&apos;s contract
-          or an app. The groups come from the data (k-means clustering); the names describe what each group has in common.
+          All {int(tt.wallets)} wallets, grouped by how they trade. Market makers&apos; wallet fleets, high-frequency bots and dust wallets
+          (under $10 traded) are set apart by clear rules. Everyone else is grouped by clustering (k-means) on behaviour: size, how
+          often and how regularly they trade, trade size, how many stocks, weekend trading, apps, whether they mostly buy or sell, and how much
+          goes into crypto-related stocks and ETFs.
         </p>
       </div>
-      <ShareCard slug="trader-types-map" {...range} title="Trader types at a glance" sub="Each dot is a wallet, placed by how it trades across all ten features; colour = trader type">
-        <TypeScatter points={tt.points} names={tt.types.map((t) => t.name)} axes={tt.axes} />
+      <ShareCard slug="trader-types-map" {...range} title="Trader types at a glance" sub="Each bubble is a type: where its typical wallet sits, and how many wallets it holds">
+        <TypeBubbles types={tt.types} />
+      </ShareCard>
+      <ShareCard slug="trader-types-traits" exportZoom={1} {...range} title="What sets each type apart" sub="The typical value per type; colour shows how far it is from the average wallet">
+        <TraitGrid types={tt.types} traits={tt.traits} />
       </ShareCard>
       <TypeCards types={tt.types} />
       <p className="text-xs text-ink-3">
-        Over all loaded days. Medians describe a typical wallet in the group; percentages for weekend, market makers and apps are averages
-        per wallet. Groups are recomputed as new data comes in, so names and sizes can shift.
+        Over all loaded days. Rules: market-maker fleets = more than 80% of trades through a market maker&apos;s contract; high-frequency bots =
+        50+ trades per active day on at least 5 days; dust = under $10 traded in total. Groups are recomputed as new data comes in.
       </p>
     </div>
   );

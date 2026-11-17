@@ -13,6 +13,7 @@ export function TypeCards({ types }: { types: TraderType[] }) {
           <div className="flex items-center gap-2">
             <span className="size-3 rounded-full" style={{ background: `var(--cat-${t.id + 1})` }} />
             <h3 className="font-semibold">{t.name}</h3>
+            {t.rule && <span className="ml-auto rounded bg-surface-0 px-1.5 py-0.5 text-[11px] text-ink-3" title="Set by a fixed rule, not by the clustering">rule-based</span>}
           </div>
           <p className="mt-1 text-xs text-ink-3">{t.desc}</p>
           <div className="mt-3 grid grid-cols-2 gap-3">
@@ -42,6 +43,7 @@ export function TypeCards({ types }: { types: TraderType[] }) {
             <dt className="text-ink-3">Median volume</dt><dd className="text-right tabular-nums">{usd(t.med.volume)}</dd>
             <dt className="text-ink-3">Median trades</dt><dd className="text-right tabular-nums">{int(t.med.trades)}</dd>
             <dt className="text-ink-3">Median active days</dt><dd className="text-right tabular-nums">{int(t.med.days)}</dd>
+            <dt className="text-ink-3">Trade size</dt><dd className="text-right tabular-nums">{usd(t.med.avgTrade)}</dd>
             <dt className="text-ink-3">Weekend volume</dt><dd className="text-right tabular-nums">{pct(t.mean.weekend)}</dd>
             <dt className="text-ink-3">Via market makers</dt><dd className="text-right tabular-nums">{pct(t.mean.mm)}</dd>
             <dt className="text-ink-3">Via apps & aggregators</dt><dd className="text-right tabular-nums">{pct(t.mean.agg)}</dd>
