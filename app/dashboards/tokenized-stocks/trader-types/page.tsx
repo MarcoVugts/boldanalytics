@@ -22,8 +22,8 @@ export default async function TraderTypes() {
           or an app. The groups come from the data (k-means clustering); the names describe what each group has in common.
         </p>
       </div>
-      <ShareCard slug="trader-types-map" {...range} title="Trader types at a glance" sub="Each dot is a wallet: number of trades against volume, coloured by type">
-        <TypeScatter points={tt.points} names={tt.types.map((t) => t.name)} />
+      <ShareCard slug="trader-types-map" {...range} title="Trader types at a glance" sub="Each dot is a wallet, placed by how it trades across all ten features; colour = trader type">
+        <TypeScatter points={tt.points} names={tt.types.map((t) => t.name)} axes={tt.axes} />
       </ShareCard>
       <TypeCards types={tt.types} />
       <p className="text-xs text-ink-3">

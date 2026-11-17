@@ -16,7 +16,9 @@ export type TraderType = {
   mean: { weekend: number; mm: number; agg: number; topShare: number; direction: number; activeShare: number };
   topStocks: { symbol: string; share: number }[];
 };
-export type TraderTypes = { types: TraderType[]; points: [number, number, number][]; wallets: number; k: number };
+/** Map axis: the share of variance it explains and its strongest features (low end / high end, plain words). */
+export type MapAxis = { explained: number; low: string; high: string };
+export type TraderTypes = { types: TraderType[]; points: [number, number, number][]; axes: [MapAxis, MapAxis]; wallets: number; k: number };
 
 const K = 6;
 const VOL = "COALESCE(t.buy_usd,0) + COALESCE(t.sell_usd,0) - COALESCE(t.cross_usd,0)";
@@ -55,6 +57,19 @@ export async function getTraderTypes(): Promise<TraderTypes | null> {
 /* ---------- clustering ---------- */
 
 const lg = (x: number) => Math.log10(Math.max(1, x));
+// plain-language ends of each feature, same order as features()
+const FEATURE_WORDS: [string, string][] = [
+  ["small volume", "large volume"],
+  ["few trades", "many trades"],
+  ["few active days", "many active days"],
+  ["irregular", "trades almost daily"],
+  ["one or two stocks", "many stocks"],
+  ["spread over stocks", "one main stock"],
+  ["small trades", "large trades"],
+  ["weekdays", "weekends"],
+  ["not via market makers", "via market makers"],
+  ["not via apps", "via apps & aggregators"],
+];
 function features(r: WalletRow): number[] {
   return [
     lg(r.v),                       // size
@@ -107,6 +122,37 @@ function kmeans(X: number[][], k: number, iters = 40) {
 const median = (xs: number[]) => { if (!xs.length) return 0; const s = [...xs].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };
 const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
 const fmtUsd = (v: number) => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(v >= 1e4 ? 0 : 1)}K` : `$${Math.round(v)}`);
+
+/** First two principal components of standardized data (power iteration with deflation on the covariance). */
+function pca2(X: number[][]) {
+  const n = X.length, dim = X[0].length;
+  const C = Array.from({ length: dim }, () => new Array(dim).fill(0));
+  for (const x of X) for (let a = 0; a < dim; a++) for (let b = a; b < dim; b++) C[a][b] += x[a] * x[b];
+  for (let a = 0; a < dim; a++) for (let b = a; b < dim; b++) { C[a][b] /= n; C[b][a] = C[a][b]; }
+  const total = C.reduce((s, row, i) => s + row[i], 0) || 1;
+  const comps: { v: number[]; lambda: number }[] = [];
+  const M = C.map((r) => r.slice());
+  for (let c = 0; c < 2; c++) {
+    let v = Array.from({ length: dim }, (_, i) => 1 / Math.sqrt(dim) + i * 1e-3);
+    let lambda = 0;
+    for (let it = 0; it < 200; it++) {
+      const w = M.map((row) => row.reduce((s, m, j) => s + m * v[j], 0));
+      const norm = Math.sqrt(w.reduce((s, x) => s + x * x, 0)) || 1;
+      lambda = norm;
+      v = w.map((x) => x / norm);
+    }
+    // orient so that "more volume" points right / up for readability
+    if (v[0] < 0) v = v.map((x) => -x);
+    comps.push({ v, lambda });
+    for (let a = 0; a < dim; a++) for (let b = 0; b < dim; b++) M[a][b] -= lambda * v[a] * v[b];
+  }
+  const axis = ({ v, lambda }: { v: number[]; lambda: number }): MapAxis => {
+    const top = v.map((w, i) => ({ w, i })).sort((a, b) => Math.abs(b.w) - Math.abs(a.w)).slice(0, 2);
+    const end = (sign: 1 | -1) => top.map(({ w, i }) => FEATURE_WORDS[i][(w * sign > 0 ? 1 : 0)]).join(", ");
+    return { explained: lambda / total, low: end(-1), high: end(1) };
+  };
+  return { comps: comps.map((c) => c.v), axes: [axis(comps[0]), axis(comps[1])] as [MapAxis, MapAxis] };
+}
 
 function cluster(rows: WalletRow[]): TraderTypes {
   const F = rows.map(features), dim = F[0].length;
@@ -169,7 +215,9 @@ function cluster(rows: WalletRow[]): TraderTypes {
   const remap = new Map(types.map((t, i) => [t.id, i]));
   types.forEach((t, i) => (t.id = i));
 
-  // scatter sample: up to 400 wallets per group, log10(trades) vs log10(volume)
+  // map: every sampled wallet projected on the first two principal components of all ten features
+  const { comps, axes } = pca2(X);
+  const proj = (x: number[]) => [x.reduce((s, v, j) => s + v * comps[0][j], 0), x.reduce((s, v, j) => s + v * comps[1][j], 0)];
   const rand = rng(7), perGroup = new Map<number, number>();
   const idx = rows.map((_, i) => i).sort(() => rand() - 0.5);
   const points: [number, number, number][] = [];
@@ -177,7 +225,8 @@ function cluster(rows: WalletRow[]): TraderTypes {
     const c = remap.get(lab[i])!;
     if ((perGroup.get(c) ?? 0) >= 400) continue;
     perGroup.set(c, (perGroup.get(c) ?? 0) + 1);
-    points.push([Math.round(lg(rows[i].tr) * 1000) / 1000, Math.round(lg(rows[i].v) * 1000) / 1000, c]);
+    const [px, py] = proj(X[i]);
+    points.push([Math.round(px * 1000) / 1000, Math.round(py * 1000) / 1000, c]);
   }
-  return { types, points, wallets: rows.length, k: types.length };
+  return { types, points, axes, wallets: rows.length, k: types.length };
 }
