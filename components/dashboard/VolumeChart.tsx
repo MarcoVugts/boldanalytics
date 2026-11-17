@@ -101,8 +101,17 @@ export function VolumeChart({
 }) {
   const [split, setSplit] = useState(true);
   const [period, setPeriod] = useState<Period>("day");
+  const [share, setShare] = useState(false);
   const [ref, width] = useWidth<HTMLDivElement>(720);
-  const data = useMemo(() => aggregate(days, period), [days, period]);
+  const data = useMemo(() => {
+    const agg = aggregate(days, period);
+    if (!share || !split) return agg;
+    // % share: every bar = 100%, parts are each key's share of that period
+    return agg.map((d) => {
+      const tot = Object.values(d.parts).reduce((a, b) => a + b, 0);
+      return { x: d.x, y: 100, parts: tot > 0 ? Object.fromEntries(Object.entries(d.parts).map(([k, v]) => [k, (v / tot) * 100])) : d.parts };
+    });
+  }, [days, period, share, split]);
 
   // Colour follows the stock (fixed order by total volume); Other is neutral and sits on top.
   const series: Series[] = [
@@ -146,6 +155,17 @@ export function VolumeChart({
           value={split}
           onChange={setSplit}
         />
+        {split && (
+          <Toggle
+            label="Scale"
+            options={[
+              { key: false, label: "USD" },
+              { key: true, label: "% share" },
+            ]}
+            value={share}
+            onChange={setShare}
+          />
+        )}
       </div>
       {split && (
         <ul className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink-2">
@@ -161,11 +181,11 @@ export function VolumeChart({
         </ul>
       )}
       <BarChart
-        key={period}
-        unit="usd"
+        key={`${period}${split}${share && split}`}
+        unit={share && split ? "pct" : "usd"}
         height={width < 500 ? 260 : 320}
         label={`${PERIODS.find((p) => p.key === period)!.label} DEX volume${split ? ` by ${noun}` : ""} in USD`}
-        markMax={markMax ? `record ${period}` : undefined}
+        markMax={markMax && !(share && split) ? `record ${period}` : undefined}
         series={split ? series : undefined}
         tickLabel={tick}
         longLabel={long}

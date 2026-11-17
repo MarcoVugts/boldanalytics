@@ -9,7 +9,8 @@ const plain = <T,>(rows: readonly T[]): T[] => rows.map((r) => ({ ...r }));
 const VOL = "COALESCE(buy_usd,0) + COALESCE(sell_usd,0) - COALESCE(cross_usd,0)";
 const PERIOD = (g: Grain) => (g === "day" ? "day" : `date_trunc('${g}', day)`);
 
-/** Unique wallets per period, in total (symbol '*') and per stock. */
+/** Unique wallets per period, each wallet counted once: under the stock it traded most (by volume) in that period.
+ *  Summed over stocks this is the number of unique traders in the period. */
 export type UniqueRow = { g: Grain; p: string; symbol: string; wallets: number };
 
 export async function getUniqueTraders(): Promise<UniqueRow[]> {
@@ -18,16 +19,20 @@ export async function getUniqueTraders(): Promise<UniqueRow[]> {
   cacheTag("trades");
   if (!hasMd()) return [];
   const one = (g: Grain) => `
-    SELECT '${g}' AS g, strftime(${PERIOD(g)}, '%Y-%m-%d') AS p, '*' AS symbol, COUNT(DISTINCT wallet)::int AS wallets FROM trades_daily GROUP BY 2
-    UNION ALL
-    SELECT '${g}', strftime(${PERIOD(g)}, '%Y-%m-%d'), symbol, COUNT(DISTINCT wallet)::int FROM trades_daily GROUP BY 2, 3`;
+    SELECT '${g}' AS g, strftime(p, '%Y-%m-%d') AS p, symbol, COUNT(*)::int AS wallets
+    FROM (
+      SELECT p, wallet, arg_max(symbol, v) AS symbol
+      FROM (SELECT ${PERIOD(g)} AS p, wallet, symbol, SUM(${VOL}) AS v FROM trades_daily GROUP BY 1, 2, 3)
+      GROUP BY 1, 2
+    )
+    GROUP BY 1, 2, 3`;
   return plain(await mdQuery<UniqueRow>(`${one("day")} UNION ALL ${one("week")} UNION ALL ${one("month")} ORDER BY 2`));
 }
 
 /** Wallet buckets per period, by the wallet's number of trades (transactions) or its volume in that period. */
 export const TRADE_BUCKETS = ["1 trade", "2–5", "6–20", "21–100", "101–1,000", "1,000+"];
 export const VOLUME_BUCKETS = ["< $1K", "$1K–10K", "$10K–100K", "$100K–1M", "$1M–10M", "$10M+"];
-export type BucketRow = { g: Grain; p: string; by: "trades" | "volume"; bucket: number; volume: number; wallets: number };
+export type BucketRow = { g: Grain; p: string; by: "trades" | "volume"; bucket: number; volume: number; trades: number; wallets: number };
 
 export async function getWalletBuckets(): Promise<BucketRow[]> {
   "use cache";
@@ -40,7 +45,7 @@ export async function getWalletBuckets(): Promise<BucketRow[]> {
     w_${g} AS (SELECT ${PERIOD(g)} AS p, wallet, SUM(trades) AS t, SUM(${VOL}) AS v FROM trades_daily GROUP BY 1, 2)`;
   const sel = (g: Grain, by: "trades" | "volume") => `
     SELECT '${g}' AS g, strftime(p, '%Y-%m-%d') AS p, '${by}' AS by, ${by === "trades" ? tb : vb} AS bucket,
-           SUM(v)::float8 AS volume, COUNT(*)::int AS wallets
+           SUM(v)::float8 AS volume, SUM(t)::float8 AS trades, COUNT(*)::int AS wallets
     FROM w_${g} GROUP BY 2, 4`;
   const gs: Grain[] = ["day", "week", "month"];
   return plain(
