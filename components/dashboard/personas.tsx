@@ -94,3 +94,30 @@ export function PersonaIcon({ name, color, size = 40 }: { name: string; color: s
     </span>
   );
 }
+
+// Small icon per trait (for the "Why this group" bullets).
+const TRAIT: Record<string, React.ReactNode> = {
+  volume: <><ellipse cx="12" cy="6" rx="7" ry="2.5" /><path d="M5 6v6c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V6M5 12v6c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-6" /></>,
+  trades: <><path d="M6 5v14M10 5v14M14 5v14M18 5v14M4 15l16-6" /></>,
+  days: <><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M4 10h16M9 3v4M15 3v4" /></>,
+  perDay: <path d="M13 3L5 14h6l-1 7 8-11h-6l1-7z" />,
+  avgTrade: <><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z" /><path d="M9 8h6M9 12h6" /></>,
+  stocks: <><path d="M12 3l9 5-9 5-9-5 9-5z" /><path d="M3 13l9 5 9-5" /></>,
+  weekend: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></>,
+  agg: <><rect x="7" y="3" width="10" height="18" rx="2" /><path d="M11 18h2" /></>,
+  mm: <><path d="M4 8h13l-3-3M20 16H7l3 3" /></>,
+  netBuy: <><path d="M7 17l5-5 5 5M7 11l5-5 5 5" /></>,
+  crypto: <><circle cx="12" cy="12" r="9" /><path d="M10 7.5v9M10 7.5h3a2 2 0 010 4h-3m0 0h3.5a2.25 2.25 0 010 4.5H10" /></>,
+  meme: <><path d="M14 4c3 .5 5.5 3 6 6l-6 6-6-6 6-6z" /><path d="M8 10l-3 1-1 3 3-1M14 16l-1 3-3 1 1-3" /></>,
+  none: <><circle cx="12" cy="12" r="9" /><path d="M8 12h8" /></>,
+};
+
+export function TraitIcon({ k, text, color }: { k: string; text: string; color: string }) {
+  // net buying vs selling: arrows up or down
+  const down = k === "netBuy" && /sell/i.test(text);
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="mt-px shrink-0" style={down ? { transform: "rotate(180deg)" } : undefined}>
+      {TRAIT[k] ?? TRAIT.none}
+    </svg>
+  );
+}

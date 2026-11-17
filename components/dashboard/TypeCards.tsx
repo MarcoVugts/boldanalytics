@@ -1,7 +1,7 @@
 import { EntityLogo } from "../EntityLogo";
 import { int, usd } from "@/lib/format";
 import type { TraderType } from "@/lib/queries/clusters";
-import { persona, PersonaIcon } from "./personas";
+import { persona, PersonaIcon, TraitIcon } from "./personas";
 
 const pct = (v: number) => `${(v * 100).toFixed(v < 0.1 ? 1 : 0)}%`;
 
@@ -25,11 +25,11 @@ export function TypeCards({ types }: { types: TraderType[] }) {
           {t.why.length > 0 ? (
             <div className="mt-2 h-[calc(100%-0.5rem)] rounded-md bg-surface-0 p-2.5">
               <div className="text-[11px] font-medium uppercase tracking-wider text-ink-3">Why this group</div>
-              <ul className="mt-1 space-y-1 text-xs text-ink-2">
+              <ul className="mt-1.5 space-y-1.5 text-xs text-ink-2">
                 {t.why.map((w) => (
-                  <li key={w} className="flex gap-1.5">
-                    <span aria-hidden className="mt-1.5 size-1 shrink-0 rounded-full" style={{ background: `var(--cat-${t.id + 1})` }} />
-                    <span>{w}</span>
+                  <li key={w.text} className="flex gap-2">
+                    <TraitIcon k={w.key} text={w.text} color={`var(--cat-${t.id + 1})`} />
+                    <span>{w.text}</span>
                   </li>
                 ))}
               </ul>

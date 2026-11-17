@@ -14,7 +14,7 @@ export type WalletRow = {
 export type TraderType = {
   id: number; name: string; desc: string; rule: boolean;
   /** plain-language reasons why these wallets form this group (rule first, then the most distinctive traits) */
-  why: string[];
+  why: { key: string; text: string }[];
   wallets: number; walletShare: number; volume: number; volumeShare: number;
   med: { volume: number; trades: number; days: number; perDay: number; avgTrade: number; stocks: number };
   mean: { weekend: number; mm: number; agg: number; topShare: number; netBuy: number; crypto: number; meme: number };
@@ -251,12 +251,12 @@ export function buildTraderTypes(rows: WalletRow[], firstDay: string | null): Tr
   type Draft = TraderType;
   const drafts: Draft[] = [];
   const members = new Map<Draft, WalletRow[]>();
-  const add = (g: WalletRow[], name: string, rule: boolean) => { if (g.length) { const d = { id: 0, name, desc: "", rule, why: [] as string[], ...summarize(g, totW, totV) }; drafts.push(d); members.set(d, g); } };
+  const add = (g: WalletRow[], name: string, rule: boolean) => { if (g.length) { const d = { id: 0, name, desc: "", rule, why: [] as { key: string; text: string }[], ...summarize(g, totW, totV) }; drafts.push(d); members.set(d, g); } };
   add(mm, "Market-maker fleets", true);
   add(bots, "High-frequency bots", true);
   add(whales, "Whales", true);
   const clustered: Draft[] = [];
-  for (const g of clusters) if (g.length) { const d = { id: 0, name: "", desc: "", rule: false, why: [] as string[], ...summarize(g, totW, totV) }; clustered.push(d); members.set(d, g); }
+  for (const g of clusters) if (g.length) { const d = { id: 0, name: "", desc: "", rule: false, why: [] as { key: string; text: string }[], ...summarize(g, totW, totV) }; clustered.push(d); members.set(d, g); }
 
   // names for the clustered groups: most distinctive trait first, each name once
   const restMed = summarize(rest, totW, totV);
@@ -382,8 +382,8 @@ export function buildTraderTypes(rows: WalletRow[], firstDay: string | null): Tr
       .filter((x) => x.mag >= 0.3 || x.f.key === nameKey[t.name])
       .sort((a, b) => (b.f.key === nameKey[t.name] ? 1 : 0) - (a.f.key === nameKey[t.name] ? 1 : 0) || b.mag - a.mag)
       .slice(0, rule ? 2 : 3);
-    t.why = [...(rule ? [rule.text(t)] : []), ...ranked.map((x) => x.f.say(x.v, x.b, t))];
-    if (!t.why.length) t.why = ["No single trait stands out: these wallets sit close to the typical wallet on every feature"];
+    t.why = [...(rule ? [{ key: rule.skip, text: rule.text(t) }] : []), ...ranked.map((x) => ({ key: x.f.key, text: x.f.say(x.v, x.b, t) }))];
+    if (!t.why.length) t.why = [{ key: "none", text: "No single trait stands out: these wallets sit close to the typical wallet on every feature" }];
   }
 
   return { types, traits, points, wallets: totW, firstDay };
