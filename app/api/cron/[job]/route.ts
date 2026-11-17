@@ -47,7 +47,7 @@ function summarize(results: (IngestResult | { dataset: string; action: string })
 // Hobby allows up to 300s; unfinished Dune executions are stored and resumed next call.
 export const maxDuration = 300;
 
-// GET /api/cron/daily                        — tokens + trades + routes, then history backfill with the time left
+// GET /api/cron/daily                        — tokens + trades + routes (catching up missed days), then history backfill
 // GET /api/cron/backfill                     — only the history backfill (continues by itself)
 // GET /api/cron/trades | routes | tokens     — one job
 // GET /api/cron/trades?start=2026-11-01&end=2026-11-02   — manual window
@@ -111,7 +111,17 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ job: string
   const results: (IngestResult | { dataset: string; action: string; [k: string]: unknown })[] = [];
   for (const name of jobs[job]) {
     try {
-      results.push(name === "tokens" ? await syncTokens() : await runIngest(name, opts()));
+      if (name === "tokens") {
+        results.push(await syncTokens());
+        continue;
+      }
+      // Catch up after an outage: after finishing a window (e.g. a pending run from a failed day), go on with the
+      // next one while there is time. A manual ?start= window runs once.
+      for (let k = 0; k < 10; k++) {
+        const r = await runIngest(name, opts());
+        results.push(r);
+        if (r.action !== "completed" || opts().start || deadline - Date.now() < 90_000) break;
+      }
     } catch (err) {
       console.error(name, err);
       results.push({ dataset: name, action: "error", message: String(err) });

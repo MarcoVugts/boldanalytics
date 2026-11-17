@@ -10,7 +10,21 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   // Old story URLs (shared on X/LinkedIn) keep working.
   async redirects() {
+    // Once the own domain is live, set CANONICAL_HOST (e.g. boldanalytics.io) in Vercel and redeploy: every page on the
+    // vercel.app address then redirects there. /api stays reachable (cron, beacons) so nothing breaks mid-switch.
+    const canonical = process.env.CANONICAL_HOST?.trim();
+    const toCanonical = canonical
+      ? [
+          {
+            source: "/:path((?!api/).*)",
+            has: [{ type: "host" as const, value: "boldanalytics.vercel.app" }],
+            destination: `https://${canonical}/:path`,
+            permanent: true,
+          },
+        ]
+      : [];
     return [
+      ...toCanonical,
       // only page URLs: media files also live under /stories/record-day
       { source: "/stories", destination: "/dashboards", permanent: true },
       { source: "/stories/tokenized-stocks", destination: "/dashboards/tokenized-stocks", permanent: true },
