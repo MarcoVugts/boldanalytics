@@ -1,6 +1,7 @@
 import { EntityLogo } from "../EntityLogo";
 import { int, usd } from "@/lib/format";
 import type { TraderType } from "@/lib/queries/clusters";
+import { persona, PersonaIcon } from "./personas";
 
 const pct = (v: number) => `${(v * 100).toFixed(v < 0.1 ? 1 : 0)}%`;
 
@@ -10,10 +11,15 @@ export function TypeCards({ types }: { types: TraderType[] }) {
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {types.map((t) => (
         <section key={t.id} className="row-span-6 grid grid-rows-subgrid gap-0 rounded-lg border border-border bg-surface-1 p-4">
-          <div className="flex items-center gap-2">
-            <span className="size-3 rounded-full" style={{ background: `var(--cat-${t.id + 1})` }} />
-            <h3 className="font-semibold">{t.name}</h3>
-            {t.rule && <span className="ml-auto rounded bg-surface-0 px-1.5 py-0.5 text-[11px] text-ink-3" title="Set by a fixed rule, not by the clustering">rule-based</span>}
+          <div className="flex items-start gap-3">
+            <PersonaIcon name={t.name} color={`var(--cat-${t.id + 1})`} size={44} />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold">{t.name}</h3>
+                {t.rule && <span className="ml-auto rounded bg-surface-0 px-1.5 py-0.5 text-[11px] text-ink-3" title="Set by a fixed rule, not by the clustering">rule-based</span>}
+              </div>
+              <p className="mt-0.5 text-xs italic text-ink-2">{persona(t.name).line}</p>
+            </div>
           </div>
           {/* subgrid rows: every section lines up across the cards in a row, however many reasons a card has */}
           {t.why.length > 0 ? (

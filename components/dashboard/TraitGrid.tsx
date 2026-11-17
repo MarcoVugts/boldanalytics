@@ -1,4 +1,5 @@
 import type { Trait, TraderType } from "@/lib/queries/clusters";
+import { PersonaIcon } from "./personas";
 
 // diverging: blue = above the average wallet, orange = below, neutral in between
 const cell = (s: number) => {
@@ -25,7 +26,7 @@ export function TraitGrid({ types, traits }: { types: TraderType[]; traits: Trai
             <tr key={ty.id}>
               <td className="sticky left-0 bg-surface-1 py-1.5 pr-2">
                 <span className="flex items-center gap-1.5 whitespace-nowrap font-medium">
-                  <span className="size-2.5 rounded-full" style={{ background: `var(--cat-${ty.id + 1})` }} />
+                  <PersonaIcon name={ty.name} color={`var(--cat-${ty.id + 1})`} size={22} />
                   {ty.name}
                 </span>
               </td>
