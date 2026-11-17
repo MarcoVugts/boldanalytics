@@ -1,5 +1,5 @@
 import { int, usd } from "@/lib/format";
-import type { DailyPoint, DailyTokenPoint, GroupRow, TokenRow } from "@/lib/queries/trades";
+import type { DailyKeyPoint, DailyPoint, GroupRow, TokenRow } from "@/lib/queries/trades";
 
 // Building blocks shared by the Tokenized Stocks dashboard pages.
 
@@ -7,9 +7,8 @@ export const BASE = "/dashboards/tokenized-stocks";
 export const TABS = [
   { href: BASE, label: "Overview" },
   { href: `${BASE}/volume`, label: "Volume" },
-  { href: `${BASE}/order-flow`, label: "Order flow" },
   { href: `${BASE}/traders`, label: "Traders" },
-  { href: `${BASE}/visuals`, label: "Visuals" },
+  { href: `${BASE}/visualizations`, label: "Visualizations" },
 ];
 
 export function GroupTable({ rows, label, mono }: { rows: GroupRow[]; label: string; mono?: boolean }) {
@@ -111,16 +110,48 @@ export function LabelNote() {
 }
 
 
-/** Pivot daily volume per stock into stacked-bar points; symbols in fixed order (largest first), Other last. */
-export function stackDays(daily: DailyPoint[], byToken: DailyTokenPoint[]) {
+/** Pivot daily volume per key (stock or DEX) into stacked-bar points: top N keys (largest first), the rest as "Other". */
+export function stackDays(daily: DailyPoint[], byKey: DailyKeyPoint[], top = 8) {
   const tot = new Map<string, number>();
-  for (const r of byToken) if (r.symbol !== "Other") tot.set(r.symbol, (tot.get(r.symbol) ?? 0) + r.volume_usd);
-  const symbols = [...tot.entries()].sort((a, b) => b[1] - a[1]).map(([s]) => s);
+  for (const r of byKey) tot.set(r.key, (tot.get(r.key) ?? 0) + r.volume_usd);
+  const symbols = [...tot.entries()].sort((a, b) => b[1] - a[1]).slice(0, top).map(([k]) => k).filter((k) => !/^(Other|Unknown)/.test(k));
+  const keep = new Set(symbols);
   const parts = new Map<string, Record<string, number>>();
-  for (const r of byToken) (parts.get(r.day) ?? parts.set(r.day, {}).get(r.day)!)[r.symbol] = r.volume_usd;
+  for (const r of byKey) {
+    const p = parts.get(r.day) ?? parts.set(r.day, {}).get(r.day)!;
+    const k = keep.has(r.key) ? r.key : "Other";
+    p[k] = (p[k] ?? 0) + r.volume_usd;
+  }
   const days = daily.map((d) => {
     const p = parts.get(d.day) ?? {};
     return { x: d.day, y: Object.values(p).reduce((s, v) => s + v, 0) || d.volume_usd, parts: p };
   });
   return { days, symbols };
+}
+
+export type KeyStat = { key: string; total: number; share: number; v7: number; ch7: number | null; v30: number; ch30: number | null; spark: number[] };
+
+/** Per key: total volume, share, last 7 / 30 days vs the 7 / 30 before (relative to the latest loaded day), 30-day trend. */
+export function keyStats(byKey: DailyKeyPoint[], days: string[]): KeyStat[] {
+  const N = days.length, ix = new Map(days.map((d, i) => [d, i]));
+  const series = new Map<string, Float64Array>();
+  for (const r of byKey) {
+    const a = series.get(r.key) ?? series.set(r.key, new Float64Array(N)).get(r.key)!;
+    const i = ix.get(r.day);
+    if (i !== undefined) a[i] += r.volume_usd;
+  }
+  const sum = (a: Float64Array, from: number, to: number) => { let s = 0; for (let i = Math.max(0, from); i < Math.min(N, to); i++) s += a[i]; return s; };
+  const grand = [...series.values()].reduce((s, a) => s + sum(a, 0, N), 0) || 1;
+  const ch = (cur: number, prev: number) => (prev > 0 ? cur / prev - 1 : null);
+  return [...series.entries()]
+    .map(([key, a]) => {
+      const total = sum(a, 0, N), v7 = sum(a, N - 7, N), p7 = sum(a, N - 14, N - 7), v30 = sum(a, N - 30, N), p30 = sum(a, N - 60, N - 30);
+      return { key, total, share: total / grand, v7, ch7: N >= 14 ? ch(v7, p7) : null, v30, ch30: N >= 60 ? ch(v30, p30) : null, spark: Array.from(a.slice(Math.max(0, N - 30))) };
+    })
+    .sort((x, y) => y.total - x.total);
+}
+
+/** Daily volume per key -> one total-trades-weighted average trade size per day. */
+export function avgTradeSize(daily: DailyPoint[]) {
+  return daily.map((d) => ({ x: d.day, y: d.trades > 0 ? d.volume_usd / d.trades : 0 }));
 }

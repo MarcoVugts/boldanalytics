@@ -28,7 +28,7 @@ const nextConfig: NextConfig = {
       // only page URLs: media files also live under /stories/record-day
       { source: "/stories", destination: "/dashboards", permanent: true },
       { source: "/stories/tokenized-stocks", destination: "/dashboards/tokenized-stocks", permanent: true },
-      { source: "/dashboards/tokenized-stocks/liquidity-flow", destination: "/dashboards/tokenized-stocks/order-flow", permanent: true },
+      { source: "/dashboards/tokenized-stocks/:old(liquidity-flow|order-flow|visuals)", destination: "/dashboards/tokenized-stocks/visualizations", permanent: true },
     ];
   },
   turbopack: {

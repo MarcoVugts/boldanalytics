@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ShareCard } from "@/components/ShareCard";
 import { Kpi, change } from "@/components/dashboard/Kpi";
 import { usd, num } from "@/lib/format";
-import { getDaily, getDailyByToken, getOverview, getWeekStats } from "@/lib/queries/trades";
+import { getDaily, getDailyBy, getOverview, getWeekStats } from "@/lib/queries/trades";
 import { getPressure } from "@/lib/queries/flows";
 import { BASE, milestoneSub, stackDays } from "./shared";
 import { VolumeChart } from "@/components/dashboard/VolumeChart";
@@ -17,7 +17,7 @@ const sum = (xs: number[]) => xs.reduce((s, x) => s + x, 0);
 const fmtDay = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 
 export default async function Overview() {
-  const [overview, daily, week, pressure, byToken] = await Promise.all([getOverview(), getDaily(), getWeekStats(), getPressure(), getDailyByToken()]);
+  const [overview, daily, week, pressure, byToken] = await Promise.all([getOverview(), getDaily(), getWeekStats(), getPressure(), getDailyBy("symbol")]);
   if (!overview?.last_day) return null;
 
   const last = daily.slice(-7), prev = daily.slice(-14, -7);
@@ -46,10 +46,9 @@ export default async function Overview() {
   ].filter(Boolean) as { k: string; v: string; s: string }[];
 
   const dives = [
-    { href: `${BASE}/volume`, title: "Volume", text: "Per day, per week, per stock and per DEX." },
-    { href: `${BASE}/order-flow`, title: "Order flow", text: "How volume flows from wallets via apps and DEXs to stocks, and where buying or selling dominates." },
-    { href: `${BASE}/traders`, title: "Traders", text: "Active wallets, which stocks are traded together and who trades what." },
-    { href: `${BASE}/visuals`, title: "Visuals", text: "The record day in motion and other visuals, ready to share." },
+    { href: `${BASE}/volume`, title: "Volume", text: "Per day, week and month, per stock, per DEX and per app, with recent changes." },
+    { href: `${BASE}/traders`, title: "Traders", text: "Active wallets, trader segments and the biggest traders." },
+    { href: `${BASE}/visualizations`, title: "Visualizations", text: "How the volume flows, buy and sell pressure, the growing network and the record day." },
   ];
 
   return (
@@ -81,7 +80,7 @@ export default async function Overview() {
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Deep dives</h2>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
           {dives.map((d) => (
             <Link key={d.href} href={d.href} className="group rounded-lg border border-border bg-surface-1 p-3 hover:border-series-1/40 sm:p-4">
               <div className="font-semibold group-hover:underline">{d.title} →</div>

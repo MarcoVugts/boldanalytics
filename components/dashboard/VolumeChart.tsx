@@ -91,10 +91,13 @@ export function VolumeChart({
   days,
   symbols,
   markMax = true,
+  noun = "stock",
 }: {
   days: Day[];
   symbols: string[];
   markMax?: boolean;
+  /** what the split is by, for the toggle and the chart label */
+  noun?: string;
 }) {
   const [split, setSplit] = useState(true);
   const [period, setPeriod] = useState<Period>("day");
@@ -138,7 +141,7 @@ export function VolumeChart({
           label="View"
           options={[
             { key: false, label: "Total" },
-            { key: true, label: "By stock" },
+            { key: true, label: `By ${noun}` },
           ]}
           value={split}
           onChange={setSplit}
@@ -161,7 +164,7 @@ export function VolumeChart({
         key={period}
         unit="usd"
         height={width < 500 ? 260 : 320}
-        label={`${PERIODS.find((p) => p.key === period)!.label} DEX volume${split ? " by stock" : ""} in USD`}
+        label={`${PERIODS.find((p) => p.key === period)!.label} DEX volume${split ? ` by ${noun}` : ""} in USD`}
         markMax={markMax ? `record ${period}` : undefined}
         series={split ? series : undefined}
         tickLabel={tick}
