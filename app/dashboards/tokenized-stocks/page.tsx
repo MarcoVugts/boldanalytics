@@ -48,6 +48,7 @@ export default async function Overview() {
   const dives = [
     { href: `${BASE}/volume`, title: "Volume", text: "Per day, week and month, per stock, per DEX and per app, with recent changes." },
     { href: `${BASE}/traders`, title: "Traders", text: "Active wallets, trader segments and the biggest traders." },
+    { href: `${BASE}/trader-types`, title: "Trader types", text: "Every wallet grouped by how it trades: from one-time traders to market-maker fleets." },
     { href: `${BASE}/visualizations`, title: "Visualizations", text: "How the volume flows, buy and sell pressure, the growing network and the record day." },
   ];
 
@@ -80,7 +81,7 @@ export default async function Overview() {
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Deep dives</h2>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {dives.map((d) => (
             <Link key={d.href} href={d.href} className="group rounded-lg border border-border bg-surface-1 p-3 hover:border-series-1/40 sm:p-4">
               <div className="font-semibold group-hover:underline">{d.title} →</div>

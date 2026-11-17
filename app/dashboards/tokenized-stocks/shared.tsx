@@ -8,6 +8,7 @@ export const TABS = [
   { href: BASE, label: "Overview" },
   { href: `${BASE}/volume`, label: "Volume" },
   { href: `${BASE}/traders`, label: "Traders" },
+  { href: `${BASE}/trader-types`, label: "Trader types" },
   { href: `${BASE}/visualizations`, label: "Visualizations" },
 ];
 
