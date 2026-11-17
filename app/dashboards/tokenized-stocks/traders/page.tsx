@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ShareCard } from "@/components/ShareCard";
 import { UniqueTradersChart } from "@/components/dashboard/UniqueTradersChart";
 import { BucketChart } from "@/components/dashboard/BucketChart";
-import { TopTraders } from "@/components/dashboard/TopTraders";
+import { TopTradersSwitch } from "@/components/dashboard/TopTradersSwitch";
 import { getOverview } from "@/lib/queries/trades";
 import { getTopTraders, getUniqueTraders, getWalletBuckets, TRADE_BUCKETS, VOLUME_BUCKETS } from "@/lib/queries/traders";
 import { LabelNote } from "../shared";
@@ -10,7 +10,7 @@ import { LabelNote } from "../shared";
 export const metadata: Metadata = { title: "Traders · Tokenized Stocks on Base" };
 
 export default async function Traders() {
-  const [overview, unique, buckets, top] = await Promise.all([getOverview(), getUniqueTraders(), getWalletBuckets(), getTopTraders()]);
+  const [overview, unique, buckets, top, topNoMM] = await Promise.all([getOverview(), getUniqueTraders(), getWalletBuckets(), getTopTraders(), getTopTraders(25, true)]);
   if (!overview?.last_day) return null;
   const range = { asOf: overview.last_day ?? undefined, from: overview.first_day ?? undefined };
   const span = { first: overview.first_day!, last: overview.last_day! };
@@ -44,7 +44,7 @@ export default async function Traders() {
       </ShareCard>
 
       <ShareCard slug="top-traders" exportZoom={1} {...range} title="Top traders" sub="The 25 wallets with the most trades over all loaded days, the operator they mostly trade through and the stocks they trade most (share of their volume)">
-        <TopTraders rows={top} />
+        <TopTradersSwitch all={top} noMM={topNoMM} />
       </ShareCard>
       <LabelNote />
       <p className="text-xs text-ink-3">Trades = transactions. Weeks start on Monday; the first and last period can be partial. Days in UTC.</p>

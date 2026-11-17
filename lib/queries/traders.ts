@@ -56,16 +56,25 @@ export type TopTrader = {
   stocks: number; top: { symbol: string; share: number }[]; op: string; kind: string;
 };
 
-export async function getTopTraders(limit = 25): Promise<TopTrader[]> {
+/** `hideMarketMakers`: leave out wallets whose main operator (most of their trades) is a market maker's contract. */
+export async function getTopTraders(limit = 25, hideMarketMakers = false): Promise<TopTrader[]> {
   "use cache";
   cacheLife("hours");
   cacheTag("trades");
   if (!hasMd()) return [];
   const rows = await mdQuery<Omit<TopTrader, "top"> & { top: string }>(`
-    WITH w AS (
+    WITH mm AS (
+      SELECT wallet FROM (
+        SELECT t.wallet, COALESCE(r.app_kind, 'unknown') AS kind,
+               ROW_NUMBER() OVER (PARTITION BY t.wallet ORDER BY SUM(t.trades) DESC, COALESCE(r.app, 'Unlabeled')) AS rn
+        FROM trades_daily t LEFT JOIN routes_labeled r USING (route) GROUP BY t.wallet, r.app, r.app_kind
+      ) WHERE rn = 1 AND kind = 'market_maker'
+    ),
+    w AS (
       SELECT wallet, SUM(trades)::bigint AS trades, SUM(${VOL})::float8 AS volume, COUNT(DISTINCT day)::int AS days,
              strftime(MIN(day), '%Y-%m-%d') AS first, strftime(MAX(day), '%Y-%m-%d') AS last, COUNT(DISTINCT symbol)::int AS stocks
-      FROM trades_daily GROUP BY 1 ORDER BY trades DESC LIMIT ${Number(limit)}
+      FROM trades_daily ${hideMarketMakers ? "WHERE wallet NOT IN (SELECT wallet FROM mm)" : ""}
+      GROUP BY 1 ORDER BY trades DESC LIMIT ${Number(limit)}
     ),
     s AS (
       SELECT t.wallet, t.symbol, SUM(${VOL.replaceAll("buy_usd", "t.buy_usd").replaceAll("sell_usd", "t.sell_usd").replaceAll("cross_usd", "t.cross_usd")}) AS v,
@@ -74,7 +83,7 @@ export async function getTopTraders(limit = 25): Promise<TopTrader[]> {
     ),
     o AS (
       SELECT t.wallet, COALESCE(r.app, 'Unlabeled') AS op, COALESCE(r.app_kind, 'unknown') AS kind,
-             ROW_NUMBER() OVER (PARTITION BY t.wallet ORDER BY SUM(t.trades) DESC) AS rn
+             ROW_NUMBER() OVER (PARTITION BY t.wallet ORDER BY SUM(t.trades) DESC, COALESCE(r.app, 'Unlabeled')) AS rn
       FROM trades_daily t JOIN w USING (wallet) LEFT JOIN routes_labeled r USING (route) GROUP BY 1, 2, 3
     )
     SELECT w.*, o.op, o.kind,
