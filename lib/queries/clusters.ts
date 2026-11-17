@@ -2,30 +2,32 @@ import { cacheLife, cacheTag } from "next/cache";
 import { hasMd, mdQuery } from "../md";
 
 // "Trader types". Two steps:
-//  1) clear-cut groups by rule: market makers' fleets, high-frequency bots, dust/test wallets;
+//  1) clear-cut groups by rule: market makers' fleets, high-frequency bots, whales ($1M+), dust/test wallets;
 //  2) k-means on everyone else (the actual traders), on behaviour features, with k (4–6) chosen by silhouette.
 // Features are computed in MotherDuck; clustering runs here and is cached per hour. Only summaries go to the browser.
 
 export type WalletRow = {
   v: number; tr: number; d: number; span: number; ns: number; we: number | null; mm: number; agg: number;
-  buy: number; sell: number; crypto: number; etf: number; joined: number; topshare: number; top: string;
+  buy: number; sell: number; crypto: number; meme: number; joined: number; topshare: number; top: string;
 };
 
 export type TraderType = {
   id: number; name: string; desc: string; rule: boolean;
   wallets: number; walletShare: number; volume: number; volumeShare: number;
   med: { volume: number; trades: number; days: number; perDay: number; avgTrade: number; stocks: number };
-  mean: { weekend: number; mm: number; agg: number; topShare: number; netBuy: number; crypto: number; etf: number };
+  mean: { weekend: number; mm: number; agg: number; topShare: number; netBuy: number; crypto: number; meme: number };
   joinedDay: number;
   topStocks: { symbol: string; share: number }[];
 };
 /** One column of the "what sets each group apart" grid: display value per type and a score in [-1, 1] vs all wallets. */
 export type Trait = { key: string; label: string; values: string[]; scores: number[] };
-export type TraderTypes = { types: TraderType[]; traits: Trait[]; wallets: number; firstDay: string | null };
+/** points: t-SNE map of a sample of wallets [x, y, typeId]; positions mean similarity only (no axes). */
+export type TraderTypes = { types: TraderType[]; traits: Trait[]; points: [number, number, number][]; wallets: number; firstDay: string | null };
 
 const VOL = "COALESCE(t.buy_usd,0) + COALESCE(t.sell_usd,0) - COALESCE(t.cross_usd,0)";
-const CRYPTO = ["COIN", "MSTR", "HOOD", "CRCL", "GLXY", "BMNR", "SBET", "MARA", "RIOT", "CLSK", "HUT", "IREN", "CORZ", "BTDR", "CIFR", "WULF", "BITF", "BLSH", "GEMI"];
-const ETF = ["SPY", "QQQ", "QQQM", "IVV", "VOO", "VTI", "IWM", "DIA", "GLD", "SLV", "TLT", "IBIT", "ETHA", "GBTC", "ARKK", "XLK", "XLF", "XLE", "SMH", "SOXX", "EEM", "EFA", "AGG", "SCHD", "TQQQ", "SQQQ"];
+// Stock themes (Coinbase tokenized-stocks list, Nov 2026: 74 stocks, no ETFs). Extend when new stocks are listed.
+const CRYPTO = ["MSTR", "HOOD", "CRCL", "BMNR", "COIN", "GLXY", "SBET", "MARA", "RIOT", "CLSK"];
+const MEME = ["GME", "AMC", "DJT", "PTON", "BIRD", "HTZ", "WEN", "QUBT", "SOUN", "RDDT"];
 const list = (xs: string[]) => xs.map((s) => `'${s}'`).join(",");
 
 export async function getTraderTypes(): Promise<TraderTypes | null> {
@@ -48,7 +50,7 @@ export async function getTraderTypes(): Promise<TraderTypes | null> {
              SUM(COALESCE(t.buy_usd, 0))::float8 AS buy,
              SUM(COALESCE(t.sell_usd, 0))::float8 AS sell,
              COALESCE(SUM(CASE WHEN t.symbol IN (${list(CRYPTO)}) THEN ${VOL} ELSE 0 END) / NULLIF(SUM(${VOL}), 0), 0)::float8 AS crypto,
-             COALESCE(SUM(CASE WHEN t.symbol IN (${list(ETF)}) THEN ${VOL} ELSE 0 END) / NULLIF(SUM(${VOL}), 0), 0)::float8 AS etf,
+             COALESCE(SUM(CASE WHEN t.symbol IN (${list(MEME)}) THEN ${VOL} ELSE 0 END) / NULLIF(SUM(${VOL}), 0), 0)::float8 AS meme,
              date_diff('day', ANY_VALUE(m.d0), MIN(t.day))::float8 AS joined
       FROM trades_daily t CROSS JOIN m LEFT JOIN routes_labeled r USING (route)
       GROUP BY 1
@@ -58,7 +60,7 @@ export async function getTraderTypes(): Promise<TraderTypes | null> {
       SELECT t.wallet, t.symbol, SUM(${VOL}) AS sv, ROW_NUMBER() OVER (PARTITION BY t.wallet ORDER BY SUM(${VOL}) DESC, t.symbol) AS rn
       FROM trades_daily t GROUP BY 1, 2
     )
-    SELECT w.v, w.tr, w.d, w.span, w.ns, w.we, w.mm, w.agg, w.buy, w.sell, w.crypto, w.etf, w.joined,
+    SELECT w.v, w.tr, w.d, w.span, w.ns, w.we, w.mm, w.agg, w.buy, w.sell, w.crypto, w.meme, w.joined,
            s.symbol AS top, (s.sv / w.v)::float8 AS topshare
     FROM w JOIN s ON s.wallet = w.wallet AND s.rn = 1`);
   if (rows.length < 100) return null;
@@ -96,7 +98,7 @@ function features(r: WalletRow): number[] {
     r.agg,                            // via apps / aggregators / smart wallets
     netBuy(r),                        // net buyer (+1) … net seller (−1)
     r.crypto,                         // crypto-related stocks
-    r.etf,                            // ETFs
+    r.meme,                           // meme stocks
   ];
 }
 
@@ -144,6 +146,58 @@ function silhouette(X: number[][], lab: Int32Array, k: number, m = 1500) {
   return tot / idx.length;
 }
 
+
+/** Exact t-SNE (van der Maaten & Hinton) for a few thousand points: 2-D map where similar wallets end up close. */
+function tsne(X: number[][], seed = 3, perplexity = 30, iters = 450): [number, number][] {
+  const n = X.length, rand = rng(seed);
+  const D = new Float64Array(n * n);
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+    let s = 0; const a = X[i], b = X[j];
+    for (let k = 0; k < a.length; k++) { const t = a[k] - b[k]; s += t * t; }
+    D[i * n + j] = D[j * n + i] = s;
+  }
+  // conditional probabilities with per-point bandwidth matching the perplexity
+  const P = new Float64Array(n * n), H = Math.log(perplexity);
+  for (let i = 0; i < n; i++) {
+    let lo = -Infinity, hi = Infinity, beta = 1;
+    for (let it = 0; it < 50; it++) {
+      let sum = 0, hsum = 0;
+      for (let j = 0; j < n; j++) if (j !== i) { const p = Math.exp(-D[i * n + j] * beta); P[i * n + j] = p; sum += p; hsum += D[i * n + j] * p; }
+      sum = sum || 1e-12;
+      const h = Math.log(sum) + (beta * hsum) / sum;
+      for (let j = 0; j < n; j++) P[i * n + j] /= sum;
+      if (Math.abs(h - H) < 1e-4) break;
+      if (h > H) { lo = beta; beta = hi === Infinity ? beta * 2 : (beta + hi) / 2; } else { hi = beta; beta = lo === -Infinity ? beta / 2 : (beta + lo) / 2; }
+    }
+  }
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) { const p = Math.max((P[i * n + j] + P[j * n + i]) / (2 * n), 1e-12); P[i * n + j] = P[j * n + i] = p; }
+  // gradient descent with momentum, gains and early exaggeration
+  const Y = new Float64Array(2 * n), U = new Float64Array(2 * n), G = new Float64Array(2 * n).fill(1), grad = new Float64Array(2 * n);
+  for (let i = 0; i < 2 * n; i++) Y[i] = (rand() - 0.5) * 1e-2;
+  const Q = new Float64Array(n * n), lr = Math.max(50, n / 12);
+  for (let it = 0; it < iters; it++) {
+    const exag = it < 120 ? 12 : 1, mom = it < 250 ? 0.5 : 0.8;
+    let qsum = 0;
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+      const dx = Y[2 * i] - Y[2 * j], dy = Y[2 * i + 1] - Y[2 * j + 1];
+      const q = 1 / (1 + dx * dx + dy * dy); Q[i * n + j] = q; qsum += 2 * q;
+    }
+    grad.fill(0);
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+      const q = Q[i * n + j], mult = 4 * (exag * P[i * n + j] - q / qsum) * q;
+      const dx = Y[2 * i] - Y[2 * j], dy = Y[2 * i + 1] - Y[2 * j + 1];
+      grad[2 * i] += mult * dx; grad[2 * i + 1] += mult * dy; grad[2 * j] -= mult * dx; grad[2 * j + 1] -= mult * dy;
+    }
+    for (let k = 0; k < 2 * n; k++) {
+      G[k] = Math.sign(grad[k]) === Math.sign(U[k]) ? G[k] * 0.8 : G[k] + 0.2;
+      if (G[k] < 0.01) G[k] = 0.01;
+      U[k] = mom * U[k] - lr * G[k] * grad[k];
+      Y[k] += U[k];
+    }
+  }
+  return Array.from({ length: n }, (_, i) => [Y[2 * i], Y[2 * i + 1]] as [number, number]);
+}
+
 /* ---------- build ---------- */
 
 function summarize(g: WalletRow[], totW: number, totV: number): Omit<TraderType, "id" | "name" | "desc" | "rule"> {
@@ -159,7 +213,7 @@ function summarize(g: WalletRow[], totW: number, totV: number): Omit<TraderType,
     },
     mean: {
       weekend: mean(g.map((r) => r.we ?? 0)), mm: mean(g.map((r) => r.mm)), agg: mean(g.map((r) => r.agg)), topShare: mean(g.map((r) => r.topshare)),
-      netBuy: mean(g.map(netBuy)), crypto: mean(g.map((r) => r.crypto)), etf: mean(g.map((r) => r.etf)),
+      netBuy: mean(g.map(netBuy)), crypto: mean(g.map((r) => r.crypto)), meme: mean(g.map((r) => r.meme)),
     },
     joinedDay: median(g.map((r) => r.joined)),
     topStocks: [...stockV.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([symbol, v]) => ({ symbol, share: v / sv })),
@@ -172,9 +226,10 @@ export function buildTraderTypes(rows: WalletRow[], firstDay: string | null): Tr
   // 1) rule groups
   const isMM = (r: WalletRow) => r.mm > 0.8;
   const isBot = (r: WalletRow) => !isMM(r) && perDay(r) >= 50 && r.d >= 5;
+  const isWhale = (r: WalletRow) => !isMM(r) && !isBot(r) && r.v >= 1_000_000;
   const isDust = (r: WalletRow) => !isMM(r) && !isBot(r) && r.v < 10;
-  const mm = rows.filter(isMM), bots = rows.filter(isBot), dust = rows.filter(isDust);
-  const rest = rows.filter((r) => !isMM(r) && !isBot(r) && !isDust(r));
+  const mm = rows.filter(isMM), bots = rows.filter(isBot), whales = rows.filter(isWhale), dust = rows.filter(isDust);
+  const rest = rows.filter((r) => !isMM(r) && !isBot(r) && !isWhale(r) && !isDust(r));
 
   // 2) k-means on the rest, k by silhouette
   const F = rest.map(features), dim = F[0]?.length ?? 0;
@@ -193,18 +248,20 @@ export function buildTraderTypes(rows: WalletRow[], firstDay: string | null): Tr
 
   type Draft = TraderType;
   const drafts: Draft[] = [];
-  const add = (g: WalletRow[], name: string, rule: boolean) => { if (g.length) drafts.push({ id: 0, name, desc: "", rule, ...summarize(g, totW, totV) }); };
+  const members = new Map<Draft, WalletRow[]>();
+  const add = (g: WalletRow[], name: string, rule: boolean) => { if (g.length) { const d = { id: 0, name, desc: "", rule, ...summarize(g, totW, totV) }; drafts.push(d); members.set(d, g); } };
   add(mm, "Market-maker fleets", true);
   add(bots, "High-frequency bots", true);
+  add(whales, "Whales", true);
   const clustered: Draft[] = [];
-  for (const g of clusters) if (g.length) clustered.push({ id: 0, name: "", desc: "", rule: false, ...summarize(g, totW, totV) });
+  for (const g of clusters) if (g.length) { const d = { id: 0, name: "", desc: "", rule: false, ...summarize(g, totW, totV) }; clustered.push(d); members.set(d, g); }
 
   // names for the clustered groups: most distinctive trait first, each name once
   const restMed = summarize(rest, totW, totV);
   const rules: { name: string; score: (t: Draft) => number }[] = [
-    { name: "Whales", score: (t) => (t.med.volume >= Math.max(50_000, restMed.med.volume * 20) ? 6 + lg(t.med.volume) / 3 : -1) },
+    { name: "Big traders", score: (t) => (t.med.volume >= Math.max(50_000, restMed.med.volume * 20) ? 6 + lg(t.med.volume) / 3 : -1) },
     { name: "Crypto-stock traders", score: (t) => (t.mean.crypto > 0.5 ? 5 + t.mean.crypto : -1) },
-    { name: "ETF traders", score: (t) => (t.mean.etf > 0.35 ? 5 + t.mean.etf : -1) },
+    { name: "Meme-stock traders", score: (t) => (t.mean.meme > 0.4 ? 5 + t.mean.meme : -1) },
     { name: "Active traders", score: (t) => (t.med.days >= Math.max(5, restMed.med.days * 3) ? 4.5 + lg(t.med.days) : -1) },
     { name: "Buyers", score: (t) => (t.mean.netBuy > 0.6 ? 4 + t.mean.netBuy : -1) },
     { name: "Sellers", score: (t) => (t.mean.netBuy < -0.6 ? 4 - t.mean.netBuy : -1) },
@@ -236,11 +293,29 @@ export function buildTraderTypes(rows: WalletRow[], firstDay: string | null): Tr
     if (t.mean.mm > 0.5) bits.push(`${pct(t.mean.mm)} via market makers`);
     else if (t.mean.agg > 0.5) bits.push(`${pct(t.mean.agg)} via apps`);
     if (t.mean.crypto > 0.4) bits.push(`${pct(t.mean.crypto)} crypto stocks`);
-    if (t.mean.etf > 0.3) bits.push(`${pct(t.mean.etf)} ETFs`);
+    if (t.mean.meme > 0.3) bits.push(`${pct(t.mean.meme)} meme stocks`);
     if (Math.abs(t.mean.netBuy) > 0.5) bits.push(t.mean.netBuy > 0 ? "mostly buys" : "mostly sells");
     t.desc = `Typically ${bits.join(" · ")}`;
   }
   const types = drafts.map((t, i) => ({ ...t, id: i }));
+
+  // t-SNE map on a stratified sample (up to 100 wallets per type), on all features plus market-maker share and trade count
+  const emb = (r: WalletRow) => [...features(r), r.mm, lg(r.tr)];
+  const E = rows.map(emb), ed = E[0].length;
+  const emu = Array.from({ length: ed }, (_, j) => mean(E.map((f) => f[j])));
+  const esd = Array.from({ length: ed }, (_, j) => Math.sqrt(mean(E.map((f) => (f[j] - emu[j]) ** 2))) || 1);
+  const pr = rng(19), sample: number[][] = [], sampleType: number[] = [];
+  drafts.forEach((d, ti) => {
+    const g = [...members.get(d)!];
+    for (let i = g.length - 1; i > 0; i--) { const j = Math.floor(pr() * (i + 1)); [g[i], g[j]] = [g[j], g[i]]; }
+    for (const r of g.slice(0, 100)) {
+      // tiny jitter so wallets with identical counts (1 day, 1 stock…) don't collapse onto one spot
+      sample.push(emb(r).map((v, j) => (v - emu[j]) / esd[j] + (pr() - 0.5) * 0.06));
+      sampleType.push(ti);
+    }
+  });
+  const Ymap = sample.length >= 30 ? tsne(sample) : [];
+  const points = Ymap.map(([px, py], i) => [Math.round(px * 100) / 100, Math.round(py * 100) / 100, sampleType[i]] as [number, number, number]);
 
   // "what sets each group apart": value per type and a score vs all wallets (log ratio for sizes, difference for shares)
   const all = summarize(rows, totW, totV);
@@ -262,7 +337,7 @@ export function buildTraderTypes(rows: WalletRow[], firstDay: string | null): Tr
     col("mm", "Via market makers", (t) => t.mean.mm, pct, "share"),
     col("netBuy", "Net buying", (t) => t.mean.netBuy, (v) => `${v > 0 ? "+" : ""}${Math.round(v * 100)}%`, "signed"),
     col("crypto", "Crypto stocks", (t) => t.mean.crypto, pct, "share"),
-    col("etf", "ETFs", (t) => t.mean.etf, pct, "share"),
+    col("meme", "Meme stocks", (t) => t.mean.meme, pct, "share"),
   ];
-  return { types, traits, wallets: totW, firstDay };
+  return { types, traits, points, wallets: totW, firstDay };
 }
