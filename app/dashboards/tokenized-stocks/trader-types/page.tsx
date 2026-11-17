@@ -37,7 +37,7 @@ export default async function TraderTypes() {
       <TypeCards types={tt.types} />
       <p className="text-xs text-ink-3">
         Over all loaded days. Rules: market-maker fleets = more than 80% of trades through a market maker&apos;s contract; high-frequency bots =
-        50+ trades per active day on at least 5 days; whales = $1M+ traded; dust = under $10 traded in total. Groups are recomputed as new data comes in.
+        20+ trades per active day on at least 5 days; whales = $1M+ traded; dust = under $10 traded in total. Groups are recomputed as new data comes in.
       </p>
     </div>
   );

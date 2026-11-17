@@ -21,6 +21,17 @@ export function TypeMap({ points, names }: { points: [number, number, number][];
     const mine = points.filter((p) => p[2] === i);
     return mine.length ? { i, n, x: x(med(mine.map((p) => p[0]))), y: y(med(mine.map((p) => p[1]))) } : null;
   }).filter(Boolean) as { i: number; n: string; x: number; y: number }[];
+  // nudge labels apart when they would overlap (alternately down and up)
+  const placed: typeof labels = [];
+  for (const l of [...labels].sort((a, b) => a.y - b.y)) {
+    let k = 0;
+    const base = l.y;
+    while (placed.some((p) => Math.abs(p.y - l.y) < 16 && Math.abs(p.x - l.x) < (p.n.length + l.n.length) * 3.6 + 6) && k < 12) {
+      k++;
+      l.y = base + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 16;
+    }
+    placed.push(l);
+  }
   return (
     <div className="space-y-3">
       <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs">

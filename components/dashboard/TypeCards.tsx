@@ -15,7 +15,19 @@ export function TypeCards({ types }: { types: TraderType[] }) {
             <h3 className="font-semibold">{t.name}</h3>
             {t.rule && <span className="ml-auto rounded bg-surface-0 px-1.5 py-0.5 text-[11px] text-ink-3" title="Set by a fixed rule, not by the clustering">rule-based</span>}
           </div>
-          <p className="mt-1 text-xs text-ink-3">{t.desc}</p>
+          {t.why.length > 0 && (
+            <div className="mt-2 rounded-md bg-surface-0 p-2.5">
+              <div className="text-[11px] font-medium uppercase tracking-wider text-ink-3">Why this group</div>
+              <ul className="mt-1 space-y-1 text-xs text-ink-2">
+                {t.why.map((w) => (
+                  <li key={w} className="flex gap-1.5">
+                    <span aria-hidden className="mt-1.5 size-1 shrink-0 rounded-full" style={{ background: `var(--cat-${t.id + 1})` }} />
+                    <span>{w}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="mt-3 grid grid-cols-2 gap-3">
             <div>
               <div className="text-xs text-ink-3">Wallets</div>

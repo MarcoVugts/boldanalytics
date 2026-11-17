@@ -16,7 +16,7 @@ export function TraitGrid({ types, traits }: { types: TraderType[]; traits: Trai
           <tr>
             <th className="sticky left-0 bg-surface-1 py-1 pr-2 text-left font-normal text-ink-3">Type</th>
             {traits.map((t) => (
-              <th key={t.key} className="px-1 py-1 text-center font-normal text-ink-3">{t.label}</th>
+              <th key={t.key} className="min-w-14 px-1 py-1 text-center font-normal text-ink-3">{t.label}</th>
             ))}
           </tr>
         </thead>
@@ -30,7 +30,7 @@ export function TraitGrid({ types, traits }: { types: TraderType[]; traits: Trai
                 </span>
               </td>
               {traits.map((t) => (
-                <td key={t.key} className="rounded px-1 py-1.5 text-center tabular-nums" style={cell(t.scores[i])}>
+                <td key={t.key} className="whitespace-nowrap rounded px-1.5 py-1.5 text-center tabular-nums" style={cell(t.scores[i])}>
                   {t.values[i]}
                 </td>
               ))}
