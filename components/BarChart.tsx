@@ -33,7 +33,7 @@ export function BarChart({
   longLabel,
 }: {
   data: Point[];
-  unit: "usd" | "count";
+  unit: "usd" | "count" | "pct";
   label: string;
   /** Stack each bar by these series (bottom → top), using Point.parts. */
   series?: Series[];
@@ -46,7 +46,7 @@ export function BarChart({
   /** Annotate the highest bar with its value and an arrow (e.g. "record day") */
   markMax?: string;
 }) {
-  const format = unit === "usd" ? usd : num;
+  const format = unit === "usd" ? usd : unit === "pct" ? (v: number) => `${v.toFixed(v > 0 && v < 10 ? 1 : 0)}%` : num;
   const exp = useExport();
   // Portrait image export: a taller chart, like the phone layout.
   const HEIGHT = exp.exporting && exp.format === "portrait" ? 330 : height ?? BASE_HEIGHT;
