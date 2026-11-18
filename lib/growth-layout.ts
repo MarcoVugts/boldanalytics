@@ -1,11 +1,10 @@
-import { forceCollide, forceSimulation, forceX, forceY, type SimulationNodeDatum } from "d3-force";
 import type { Growth } from "./queries/growth";
 
 // Fixed positions for the "network grows" visual, computed once on the server (cached with the data).
 // Logical canvas W x H. DEXs: column in the centre; operators: arc on the left with their wallets as a cloud further
 // out; stocks: arc on the right. Compact arrays keep the payload small (wallets can run into the thousands).
 
-export const GW = 1200, GH = 860;
+export const GW = 1200, GH = 620;
 export type Hub = { name: string; kind?: string; x: number; y: number; r: number; vol: number; first: number };
 /** wallets: one dot per `perDot` wallets: [opIndex, firstDayIndex, x, y, r]; edges: [aIndex, bIndex, dayIndex, volume]
  *  newWallets: real number of new wallets per day (for the counter). */
@@ -24,9 +23,10 @@ export type GrowthGraph = {
 
 const MAX_DOTS = 7000;
 const r1 = (n: number) => Math.round(n * 10) / 10;
-const TOP = 70, BOTTOM = GH - 40;
+const TOP = 44, BOTTOM = GH - 28;
 const OP_X = 520, DEX_X = 700, ST_X = 930;
-const CLUSTER_RIGHT = 285, CLUSTER_LEFT = 16; // wallet clouds live left of the operator labels
+const CLUSTER_RIGHT = 300, CLUSTER_LEFT = 8; // wallet clouds live left of the operator labels
+const MAX_AX = 1.8; // clouds are ellipses up to 1.8× wider than tall (same area as the circle), so they grow sideways
 
 /** Stack hubs vertically in the given order: gaps follow their radii, the whole column is centred. */
 function column<T extends { r: number }>(items: T[], gap: number) {
@@ -83,27 +83,37 @@ export function layoutGrowth(g: Growth): GrowthGraph {
     const ys = column(rs.map((r) => ({ r })), gap);
     return new Map(order.map((o, i) => [o.name, ys[i]]));
   };
-  type CN = SimulationNodeDatum & { name: string; R: number; ty: number };
+  // clouds: ellipses with half-width R·ax and half-height R/ax (area of a circle of radius R), as wide as the band allows.
+  // Packed with a small relaxation: pull toward their operator's height and the right edge of the band, push apart on overlap.
+  const HALF = (CLUSTER_RIGHT - CLUSTER_LEFT) / 2;
+  type CL = { name: string; R: number; ax: number; w: number; h: number; x: number; y: number; ty: number };
   let opYBy = placeOps();
-  const clusters: CN[] = g.ops.map((o) => ({ name: o.name, R: c * Math.sqrt(byOp.get(o.name)!.length) + s, ty: opYBy.get(o.name)!, x: CLUSTER_RIGHT - 40, y: opYBy.get(o.name)! }));
+  const clusters: CL[] = g.ops.map((o) => {
+    const R = c * Math.sqrt(byOp.get(o.name)!.length) + s;
+    const ax = Math.max(1, Math.min(MAX_AX, HALF / R));
+    return { name: o.name, R, ax, w: R * ax, h: R / ax, x: CLUSTER_RIGHT - R * ax, y: opYBy.get(o.name)!, ty: opYBy.get(o.name)! };
+  });
   const live = clusters.filter((n) => n.R > s);
   const settle = () => {
-    const sim = forceSimulation(live)
-      .force("x", forceX<CN>((n) => Math.max(CLUSTER_LEFT + n.R, CLUSTER_RIGHT - n.R)).strength(0.2))
-      .force("y", forceY<CN>((n) => n.ty).strength(0.12))
-      .force("c", forceCollide<CN>((n) => n.R + 5).strength(1))
-      .stop();
+    const GAP = 6;
     for (let k = 0; k < 400; k++) {
-      sim.tick();
+      for (const n of live) { n.y += (n.ty - n.y) * 0.08; n.x += (CLUSTER_RIGHT - n.w - n.x) * 0.08; }
+      for (let a = 0; a < live.length; a++) for (let b = a + 1; b < live.length; b++) {
+        const A = live[a], B = live[b];
+        const ox = A.w + B.w + GAP - Math.abs(A.x - B.x), oy = A.h + B.h + GAP - Math.abs(A.y - B.y);
+        if (ox <= 0 || oy <= 0) continue;
+        if (ox < oy) { const d = (A.x < B.x ? -1 : 1) * ox / 2; A.x += d; B.x -= d; }
+        else { const d = (A.y < B.y ? -1 : 1) * oy / 2; A.y += d; B.y -= d; }
+      }
       for (const n of live) {
-        n.x = Math.min(CLUSTER_RIGHT - n.R, Math.max(CLUSTER_LEFT + n.R, n.x ?? 0));
-        n.y = Math.min(GH - 10 - n.R, Math.max(TOP - 30 + n.R, n.y ?? 0));
+        n.x = Math.min(CLUSTER_RIGHT - n.w, Math.max(CLUSTER_LEFT + n.w, n.x));
+        n.y = Math.min(GH - 8 - n.h, Math.max(TOP - 30 + n.h, n.y));
       }
     }
   };
   for (let pass = 0; pass < 3; pass++) {
     settle();
-    const cy = new Map(clusters.map((n) => [n.name, n.R > s ? (n.y ?? 0) : opYBy.get(n.name)!]));
+    const cy = new Map(clusters.map((n) => [n.name, n.R > s ? n.y : opYBy.get(n.name)!]));
     order = [...order].sort((a, b) => cy.get(a.name)! - cy.get(b.name)!);
     opYBy = placeOps();
     for (const n of clusters) n.ty = opYBy.get(n.name)!;
@@ -119,7 +129,7 @@ export function layoutGrowth(g: Growth): GrowthGraph {
     const grp = byOp.get(o.name)!.sort((a, b) => a.f - b.f || b.vol - a.vol);
     grp.forEach((w, k) => {
       const rr = c * Math.sqrt(k + 0.5), th = k * GOLD;
-      wallets.push([i, w.f, r1((cl.x ?? 0) + rr * Math.cos(th)), r1((cl.y ?? 0) + rr * Math.sin(th)), r1(s * (0.22 + 0.22 * Math.sqrt(w.vol / wv)))]);
+      wallets.push([i, w.f, r1(cl.x + rr * Math.cos(th) * cl.ax), r1(cl.y + (rr * Math.sin(th)) / cl.ax), r1(s * (0.22 + 0.22 * Math.sqrt(w.vol / wv)))]);
     });
   });
 
