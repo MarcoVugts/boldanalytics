@@ -146,35 +146,77 @@ async function recordVideo(g: GrowthGraph, prep: Prep, onProgress: (p: number) =
     if (logo.naturalWidth) ctx.drawImage(logo, 80, 1018, 40 * (693.08 / 100), 40);
     text(`Data via Dune · day by day (UTC)${g.perDot > 1 ? ` · 1 dot ≈ ${g.perDot} wallets` : ""}`, VW - 80, 1046, `500 22px ${L.body}`, L.muted, "right");
   };
-  const types = ["video/mp4;codecs=avc1.640028", "video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9", "video/webm"];
-  const mime = types.find((m) => typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(m));
-  if (!mime) throw new Error("Video recording is not supported in this browser");
-  frame(0);
-  const rec = new MediaRecorder(cv.captureStream(fps), { mimeType: mime, videoBitsPerSecond: 16_000_000 });
-  const chunks: Blob[] = [];
-  rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
-  const done = new Promise<void>((r) => (rec.onstop = () => r()));
-  rec.start(1000);
-  const start = performance.now();
-  await new Promise<void>((resolve) => {
-    const tick = () => {
-      const el = performance.now() - start;
-      const p = Math.min(1, el / play);
-      const e = p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2; // ease in-out
-      frame(e * 0.15 + p * 0.85);
-      onProgress(Math.min(1, el / (play + hold)));
-      if (el >= play + hold) resolve(); else requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  });
-  rec.stop();
-  await done;
-  const blob = new Blob(chunks, { type: mime.split(";")[0] });
+  const at = (ms: number) => {
+    const p = Math.min(1, ms / play);
+    const e = p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2; // ease in-out
+    return e * 0.15 + p * 0.85;
+  };
+  // Preferred: encode frame by frame (WebCodecs + MP4 muxer). Every frame is drawn and encoded in order, so the video
+  // always runs to the end and stays smooth, however slow the device is or if the tab goes to the background.
+  let blob = await encodeMp4(cv, (ms) => frame(at(ms)), onProgress).catch(() => null);
+  let ext = "mp4";
+  if (!blob) {
+    // Fallback: record the canvas in real time (MediaRecorder)
+    const types = ["video/mp4;codecs=avc1.640028", "video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9", "video/webm"];
+    const mime = types.find((m) => typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(m));
+    if (!mime) throw new Error("Video recording is not supported in this browser");
+    frame(0);
+    const rec = new MediaRecorder(cv.captureStream(fps), { mimeType: mime, videoBitsPerSecond: 16_000_000 });
+    const chunks: Blob[] = [];
+    rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+    const done = new Promise<void>((r) => (rec.onstop = () => r()));
+    rec.start(1000);
+    const start = performance.now();
+    await new Promise<void>((resolve) => {
+      const tick = () => {
+        const el = performance.now() - start;
+        frame(at(el));
+        onProgress(Math.min(1, el / (play + hold)));
+        if (el >= play + hold) resolve(); else requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+    rec.stop();
+    await done;
+    blob = new Blob(chunks, { type: mime.split(";")[0] });
+    ext = mime.includes("mp4") ? "mp4" : "webm";
+  }
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `boldanalytics-network-grows-${g.days[0]}_${g.days[N - 1]}-1080p.${mime.includes("mp4") ? "mp4" : "webm"}`;
+  a.download = `boldanalytics-network-grows-${g.days[0]}_${g.days[N - 1]}-1080p.${ext}`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+
+/** H.264 MP4 at 1920×1080, 30 fps, drawn and encoded frame by frame. null when the browser can't (no WebCodecs/H.264). */
+async function encodeMp4(cv: HTMLCanvasElement, draw: (ms: number) => void, onProgress: (p: number) => void): Promise<Blob | null> {
+  if (typeof VideoEncoder === "undefined" || typeof VideoFrame === "undefined") return null;
+  const { w: VW, h: VH, fps, play, hold } = VIDEO;
+  const config: VideoEncoderConfig = { codec: "avc1.640028", width: VW, height: VH, bitrate: 12_000_000, framerate: fps };
+  if (!(await VideoEncoder.isConfigSupported(config)).supported) return null;
+  const { Muxer, ArrayBufferTarget } = await import("mp4-muxer");
+  const target = new ArrayBufferTarget();
+  const muxer = new Muxer({ target, video: { codec: "avc", width: VW, height: VH, frameRate: fps }, fastStart: "in-memory" });
+  let failed: unknown = null;
+  const enc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: (e) => (failed = e) });
+  enc.configure(config);
+  const total = Math.round(((play + hold) / 1000) * fps);
+  for (let i = 0; i < total; i++) {
+    if (failed) throw failed;
+    const ms = (i * 1000) / fps;
+    draw(ms);
+    const vf = new VideoFrame(cv, { timestamp: Math.round(ms * 1000), duration: Math.round(1e6 / fps) });
+    enc.encode(vf, { keyFrame: i % (fps * 2) === 0 });
+    vf.close();
+    // let the encoder catch up and the page breathe
+    while (enc.encodeQueueSize > 8) await new Promise((r) => setTimeout(r, 4));
+    if (i % 6 === 0) { onProgress(i / total); await new Promise((r) => setTimeout(r, 0)); }
+  }
+  await enc.flush();
+  if (failed) throw failed;
+  muxer.finalize();
+  enc.close();
+  return new Blob([target.buffer], { type: "video/mp4" });
 }
 
 /** "The network grows": wallets → operator → DEX → stock, built up day by day. Canvas, play/pause and a time slider. */
@@ -271,12 +313,12 @@ export function NetworkGrowth({ g }: { g: GrowthGraph }) {
             type="button"
             onClick={record}
             disabled={rec !== null}
-            title="Record the build-up as a 1920×1080 video (for LinkedIn or X). Keep this tab open while it records."
+            title="Download the build-up as a 1920×1080 MP4 video (for LinkedIn or X)."
             className="flex h-8 items-center gap-1.5 rounded-md border border-border px-3 text-xs font-medium text-ink-2 hover:bg-surface-0 hover:text-ink disabled:opacity-60"
           >
-            {rec === null ? "↓ HD video" : `Recording… ${Math.round(rec * 100)}%`}
+            {rec === null ? "↓ HD video" : `Making video… ${Math.round(rec * 100)}%`}
           </button>
-          {rec !== null && <span className="text-xs text-ink-3">Keep this tab open (about 25 s)</span>}
+          {rec !== null && <span className="text-xs text-ink-3">Making the video, keep this page open</span>}
           {recErr && <span className="text-xs text-critical">{recErr}</span>}
         </div>
         <div className="text-right">

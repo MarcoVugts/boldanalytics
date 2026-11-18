@@ -21,12 +21,12 @@ export type GrowthGraph = {
   newWallets: number[];
 };
 
-const MAX_DOTS = 7000;
+const MAX_DOTS = 2500; // fewer, bigger dots: more wallets per dot keeps the clouds small and calm
 const r1 = (n: number) => Math.round(n * 10) / 10;
 const TOP = 44, BOTTOM = GH - 28;
 const OP_X = 520, DEX_X = 700, ST_X = 930;
 const CLUSTER_RIGHT = 300, CLUSTER_LEFT = 8; // wallet clouds live left of the operator labels
-const MAX_AX = 1.8; // clouds are ellipses up to 1.8× wider than tall (same area as the circle), so they grow sideways
+const MAX_AX = 1; // round clouds (set above 1 to let them grow sideways as ellipses)
 
 /** Stack hubs vertically in the given order: gaps follow their radii, the whole column is centred. */
 function column<T extends { r: number }>(items: T[], gap: number) {
@@ -73,7 +73,7 @@ export function layoutGrowth(g: Growth): GrowthGraph {
   }
   const walletsIn = [...byOp.values()].flat();
   const bandArea = (CLUSTER_RIGHT - CLUSTER_LEFT) * (BOTTOM - TOP + 40);
-  const s = Math.min(9, Math.max(2.6, Math.sqrt((bandArea * 0.5) / Math.max(1, walletsIn.length))));
+  const s = Math.min(9, Math.max(2.6, Math.sqrt((bandArea * 0.4) / Math.max(1, walletsIn.length))));
   const c = 0.53 * s; // sunflower: radius of point k = c * sqrt(k)
   const wv = Math.max(1, ...walletsIn.map((w) => w.vol));
   const opRad = (o: (typeof g.ops)[number]) => rad(o.vol, 5);
