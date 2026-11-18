@@ -61,6 +61,12 @@ export function trackView(path: string) {
     }
     const params = new URLSearchParams(window.location.search);
     const counts = isNew ? visitCount() : null;
+    // campaign tags are read once; remove them from the address so a copied or bookmarked link doesn't count the campaign again
+    if ([...params.keys()].some((k) => /^(utm_|gclid$|fbclid$)/.test(k))) {
+      const u = new URL(window.location.href);
+      for (const k of [...u.searchParams.keys()]) if (/^(utm_|gclid$|fbclid$)/.test(k)) u.searchParams.delete(k);
+      try { window.history.replaceState(window.history.state, "", u.pathname + u.search + u.hash); } catch { /* ignore */ }
+    }
     const body = {
       path,
       visit: id,
