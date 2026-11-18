@@ -26,7 +26,7 @@ export function TraitGrid({ types, traits }: { types: TraderType[]; traits: Trai
             <tr key={ty.id}>
               <td className="sticky left-0 bg-surface-1 py-1.5 pr-2">
                 <span className="flex items-center gap-1.5 whitespace-nowrap font-medium">
-                  <PersonaIcon name={ty.name} color={`var(--cat-${ty.id + 1})`} size={22} />
+                  <PersonaIcon persona={ty.persona} color={`var(--cat-${ty.id + 1})`} size={22} />
                   {ty.name}
                 </span>
               </td>

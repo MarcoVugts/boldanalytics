@@ -146,7 +146,8 @@ export function ShareCard({
       </div>
       <div className={portrait ? "mt-5" : "mt-4"}>
         <ExportContext.Provider value={{ exporting, format }}>
-          {portrait && exportZoom !== 1 ? <div style={{ zoom: exportZoom }}>{children}</div> : children}
+          {/* always the same wrapper: switching between wrapped and bare children would remount the chart and reset its toggles */}
+          <div style={portrait && exportZoom !== 1 ? { zoom: exportZoom } : undefined}>{children}</div>
         </ExportContext.Provider>
       </div>
       {exporting && (

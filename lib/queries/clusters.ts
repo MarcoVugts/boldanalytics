@@ -1,9 +1,9 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { hasMd, mdQuery } from "../md";
 
-// "Trader types". Two steps:
-//  1) clear-cut groups by rule: market makers' fleets, high-frequency bots, whales ($1M+), dust/test wallets;
-//  2) k-means on everyone else (the actual traders), on behaviour features, with k (4–6) chosen by silhouette.
+// "Trader types". The analysis leads:
+//  1) k-means on all wallets, on behaviour features, with k (4–8) chosen by silhouette: no groups set by hand;
+//  2) each group is then named from a fixed vocabulary (WORDS): a word per trait it clearly scores high or low on.
 // Features are computed in MotherDuck; clustering runs here and is cached per hour. Only summaries go to the browser.
 
 export type WalletRow = {
@@ -12,12 +12,14 @@ export type WalletRow = {
 };
 
 export type TraderType = {
-  id: number; name: string; desc: string; rule: boolean;
+  id: number; name: string; desc: string;
+  /** persona icon key (the strongest word) and a one-line sketch built from the group's words */
+  persona: string; line: string; tags: string[];
   /** plain-language reasons why these wallets form this group (rule first, then the most distinctive traits) */
   why: { key: string; text: string }[];
   wallets: number; walletShare: number; volume: number; volumeShare: number;
   med: { volume: number; trades: number; days: number; perDay: number; avgTrade: number; stocks: number };
-  mean: { weekend: number; mm: number; agg: number; topShare: number; netBuy: number; crypto: number; meme: number };
+  mean: { regularity: number; weekend: number; mm: number; agg: number; topShare: number; netBuy: number; crypto: number; meme: number };
   joinedDay: number;
   topStocks: { symbol: string; share: number }[];
 };
@@ -37,7 +39,15 @@ export async function getTraderTypes(): Promise<TraderTypes | null> {
   cacheLife("hours");
   cacheTag("trades");
   if (!hasMd()) return null;
-  const rows = await mdQuery<WalletRow>(`
+  const rows = await walletRows();
+  if (rows.length < 100) return null;
+  const [first] = await mdQuery<{ d: string }>(`SELECT strftime(MIN(day), '%Y-%m-%d') AS d FROM trades_daily`);
+  return buildTraderTypes(rows, first?.d ?? null);
+}
+
+/** One row of behaviour features per wallet (uncached; getTraderTypes caches the result). */
+export function walletRows() {
+  return mdQuery<WalletRow>(`
     WITH m AS (SELECT MIN(day) AS d0 FROM trades_daily),
     w AS (
       SELECT t.wallet,
@@ -64,10 +74,8 @@ export async function getTraderTypes(): Promise<TraderTypes | null> {
     )
     SELECT w.v, w.tr, w.d, w.span, w.ns, w.we, w.mm, w.agg, w.buy, w.sell, w.crypto, w.meme, w.joined,
            s.symbol AS top, (s.sv / w.v)::float8 AS topshare
-    FROM w JOIN s ON s.wallet = w.wallet AND s.rn = 1`);
-  if (rows.length < 100) return null;
-  const [first] = await mdQuery<{ d: string }>(`SELECT strftime(MIN(day), '%Y-%m-%d') AS d FROM trades_daily`);
-  return buildTraderTypes(rows, first?.d ?? null);
+    FROM w JOIN s ON s.wallet = w.wallet AND s.rn = 1
+    ORDER BY w.wallet`); // fixed order: same data → same groups
 }
 
 /* ---------- helpers ---------- */
@@ -101,8 +109,10 @@ function features(r: WalletRow): number[] {
     netBuy(r),                        // net buyer (+1) … net seller (−1)
     r.crypto,                         // crypto-related stocks
     r.meme,                           // meme stocks
+    r.mm,                             // via market makers' contracts
   ];
 }
+const FEATURES = ["volume", "days", "regularity", "perDay", "avgTrade", "stocks", "topshare", "weekend", "agg", "netBuy", "crypto", "meme", "mm"] as const;
 
 function kmeans(X: number[][], k: number, seed = 42, iters = 50) {
   const n = X.length, dim = X[0].length, rand = rng(seed);
@@ -202,7 +212,7 @@ function tsne(X: number[][], seed = 3, perplexity = 30, iters = 450): [number, n
 
 /* ---------- build ---------- */
 
-function summarize(g: WalletRow[], totW: number, totV: number): Omit<TraderType, "id" | "name" | "desc" | "rule" | "why"> {
+function summarize(g: WalletRow[], totW: number, totV: number) {
   const vol = g.reduce((s, r) => s + r.v, 0);
   const stockV = new Map<string, number>();
   for (const r of g) stockV.set(r.top, (stockV.get(r.top) ?? 0) + r.v * r.topshare);
@@ -214,7 +224,7 @@ function summarize(g: WalletRow[], totW: number, totV: number): Omit<TraderType,
       perDay: median(g.map(perDay)), avgTrade: median(g.map((r) => r.v / Math.max(1, r.tr))), stocks: median(g.map((r) => r.ns)),
     },
     mean: {
-      weekend: mean(g.map((r) => r.we ?? 0)), mm: mean(g.map((r) => r.mm)), agg: mean(g.map((r) => r.agg)), topShare: mean(g.map((r) => r.topshare)),
+      regularity: mean(g.map((r) => r.d / Math.max(1, r.span))), weekend: mean(g.map((r) => r.we ?? 0)), mm: mean(g.map((r) => r.mm)), agg: mean(g.map((r) => r.agg)), topShare: mean(g.map((r) => r.topshare)),
       netBuy: mean(g.map(netBuy)), crypto: mean(g.map((r) => r.crypto)), meme: mean(g.map((r) => r.meme)),
     },
     joinedDay: median(g.map((r) => r.joined)),
@@ -222,88 +232,123 @@ function summarize(g: WalletRow[], totW: number, totV: number): Omit<TraderType,
   };
 }
 
+/* ---------- naming vocabulary ----------
+ * Fixed up front: for every trait we measure, the word a group gets when it scores clearly high or low on it.
+ * Not fixed up front: the groups themselves. They come out of the clustering; afterwards each group gets the words
+ * whose condition its numbers meet. z = how far the group's centre sits from all wallets, in standard deviations.
+ * A word needs both: a clear difference from all wallets (z ≥ 0.5, or a hard floor like "1 day") and, for shares, a real share.
+ * A group takes at most one word per trait, at most one noun (else "traders") and its two strongest other words. */
+
+type Summary = ReturnType<typeof summarize>;
+type Z = Record<(typeof FEATURES)[number], number>;
+type Word = {
+  id: string; trait: string; fact: string; word: string; noun?: boolean;
+  /** shown on the page: when a group gets this word */
+  when: string;
+  /** used in the persona line */
+  phrase: string;
+  /** > 0 = the group gets the word, with this strength */
+  test: (t: Summary, z: Z) => number;
+};
+const hi = (v: number, min = 0.5) => (v >= min ? v : 0);
+const WORDS: Word[] = [
+  { id: "whale", trait: "Volume", fact: "volume", word: "Whale", when: "far more volume than other wallets (z ≥ 1.5) and $100K+ typical", phrase: "moves very large amounts", test: (t, z) => (z.volume >= 1.5 && t.med.volume >= 100_000 ? z.volume + 1 : 0) },
+  { id: "big", trait: "Volume", fact: "volume", word: "Big", when: "more volume than other wallets (z ≥ 0.5)", phrase: "trades large amounts", test: (t, z) => hi(z.volume) },
+  { id: "small", trait: "Volume", fact: "volume", word: "Small", when: "less volume than other wallets (z ≤ −0.5)", phrase: "trades small amounts", test: (t, z) => hi(-z.volume) },
+  { id: "dust", trait: "Volume", fact: "volume", word: "Dust", when: "typical wallet traded under $10 in total", phrase: "trades pocket change, under $10 in total", test: (t, z) => (t.med.volume < 10 ? 1 + Math.abs(z.volume) : 0) },
+  { id: "oneTime", trait: "Active days", fact: "days", word: "One-time", when: "typical wallet active on a single day", phrase: "came on a single day", test: (t, z) => (t.med.days <= 1 ? Math.max(1, -z.days) : 0) },
+  { id: "regular", trait: "Active days", fact: "days", word: "Regular", when: "active on more days than other wallets (z ≥ 0.5, 3+ days)", phrase: "comes back on many days", test: (t, z) => (t.med.days >= 3 ? hi(z.days) : 0) },
+  { id: "steady", trait: "Regularity", fact: "regularity", word: "Steady", when: "trades on most days between first and last trade (z ≥ 0.5, 3+ days)", phrase: "trades on most days between their first and last visit", test: (t, z) => (t.med.days >= 3 ? hi(z.regularity) * 0.9 : 0) },
+  { id: "sporadic", trait: "Regularity", fact: "regularity", word: "Sporadic", when: "long gaps between trading days (z ≤ −0.5)", phrase: "drops in now and then, with long gaps", test: (t, z) => hi(-z.regularity) * 0.9 },
+  { id: "hf", trait: "Trades / day", fact: "perDay", word: "High-frequency", when: "more trades per active day (z ≥ 0.5, 5+ a day)", phrase: "trades many times per active day", test: (t, z) => (t.med.perDay >= 5 ? hi(z.perDay) : 0) },
+  { id: "bots", trait: "Trades / day", fact: "perDay", word: "bots", noun: true, when: "20+ trades per active day on 5+ days", phrase: "trades dozens of times a day, day after day, like a machine", test: (t, z) => (t.med.perDay >= 20 && t.med.days >= 5 ? Math.max(1, z.perDay) + 1 : 0) },
+  { id: "largeTicket", trait: "Trade size", fact: "avgTrade", word: "Large-ticket", when: "bigger trades than other wallets (z ≥ 0.5)", phrase: "places big individual trades", test: (t, z) => hi(z.avgTrade) },
+  { id: "micro", trait: "Trade size", fact: "avgTrade", word: "Micro", when: "smaller trades (z ≤ −0.5) under $50", phrase: "places tiny trades of a few dollars", test: (t, z) => (t.med.avgTrade < 50 ? hi(-z.avgTrade) : 0) },
+  { id: "multi", trait: "Stocks", fact: "stocks", word: "Multi-stock", when: "more different stocks (z ≥ 0.5, 3+)", phrase: "spreads trades over many stocks", test: (t, z) => (t.med.stocks >= 3 ? hi(z.stocks) : 0) },
+  { id: "single", trait: "Stocks", fact: "stocks", word: "Single-stock", when: "typical wallet trades one stock (z ≤ −0.5)", phrase: "sticks to one stock", test: (t, z) => (t.med.stocks <= 1 ? hi(-z.stocks, 0.5) : 0) },
+  { id: "weekend", trait: "Weekend", fact: "weekend", word: "Weekend", when: "40%+ of volume on weekends (z ≥ 0.5)", phrase: "trades mostly on weekends, when exchanges are closed", test: (t, z) => (t.mean.weekend >= 0.4 ? hi(z.weekend) : 0) },
+  { id: "crypto", trait: "Crypto stocks", fact: "crypto", word: "Crypto-stock", when: "30%+ of volume in crypto stocks (z ≥ 0.5)", phrase: "focuses on crypto stocks like MSTR and HOOD", test: (t, z) => (t.mean.crypto >= 0.3 ? hi(z.crypto) : 0) },
+  { id: "meme", trait: "Meme stocks", fact: "meme", word: "Meme-stock", when: "25%+ of volume in meme stocks (z ≥ 0.5)", phrase: "focuses on meme stocks like GME and AMC", test: (t, z) => (t.mean.meme >= 0.25 ? hi(z.meme) : 0) },
+  { id: "mm", trait: "Via market makers", fact: "mm", word: "market-maker wallets", noun: true, when: "half or more of trades through a market maker's contract (z ≥ 0.5)", phrase: "trades through a market maker's contract", test: (t, z) => (t.mean.mm >= 0.5 ? hi(z.mm) : 0) },
+  { id: "app", trait: "Via apps", fact: "agg", word: "app users", noun: true, when: "half or more of trades through apps and aggregators (z ≥ 0.5)", phrase: "trades through wallet apps and aggregators", test: (t, z) => (t.mean.agg >= 0.5 ? hi(z.agg, 0.5) : 0) },
+  { id: "buy", trait: "Net buying", fact: "netBuy", word: "buyers", noun: true, when: "buys at least 40% more than it sells (z ≥ 0.5)", phrase: "mostly buys", test: (t, z) => (t.mean.netBuy >= 0.4 ? hi(z.netBuy, 0.5) : 0) },
+  { id: "sell", trait: "Net buying", fact: "netBuy", word: "sellers", noun: true, when: "sells at least 40% more than it buys (z ≤ −0.5)", phrase: "mostly sells", test: (t, z) => (t.mean.netBuy <= -0.4 ? hi(-z.netBuy, 0.5) : 0) },
+];
+/** The vocabulary as plain data, for the "how the names are made" table. */
+export const NAMING = WORDS.map(({ trait, word, noun, when }) => ({ trait, word, noun: !!noun, when }));
+// adjectives read in this order in a name ("Big regular crypto-stock traders")
+const ADJ_ORDER = WORDS.filter((w) => !w.noun).map((w) => w.id);
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const andList = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
+
+function nameGroup(t: Summary, z: Z, nAdj = 2) {
+  const hits = WORDS.map((w) => ({ w, s: w.test(t, z) })).filter((h) => h.s > 0);
+  // one word per trait: the strongest
+  const byFact = new Map<string, { w: Word; s: number }>();
+  for (const h of hits) if ((byFact.get(h.w.fact)?.s ?? 0) < h.s) byFact.set(h.w.fact, h);
+  const best = [...byFact.values()].sort((a, b) => b.s - a.s);
+  const noun = best.find((h) => h.w.noun);
+  const adjs = best.filter((h) => !h.w.noun).slice(0, nAdj);
+  const used = [...(noun ? [noun] : []), ...adjs].sort((a, b) => b.s - a.s);
+  const words = [...adjs].sort((a, b) => ADJ_ORDER.indexOf(a.w.id) - ADJ_ORDER.indexOf(b.w.id)).map((h) => h.w.word);
+  const name = used.length ? cap([...words, noun?.w.word ?? "traders"].join(" ").toLowerCase()) : "Typical traders";
+  const line = used.length ? `${cap(andList(used.slice(0, 3).map((h) => h.w.phrase)))}.` : "Close to the typical wallet on every habit: nothing stands out.";
+  return { name, line, persona: used[0]?.w.id ?? "typical", used: used.map((h) => h.w), spare: best.length - used.length };
+}
+
 export function buildTraderTypes(rows: WalletRow[], firstDay: string | null): TraderTypes {
   const totW = rows.length, totV = rows.reduce((s, r) => s + r.v, 0) || 1;
 
-  // 1) rule groups
-  const isMM = (r: WalletRow) => r.mm > 0.8;
-  const isBot = (r: WalletRow) => !isMM(r) && perDay(r) >= 20 && r.d >= 5;
-  const isWhale = (r: WalletRow) => !isMM(r) && !isBot(r) && r.v >= 1_000_000;
-  const isDust = (r: WalletRow) => !isMM(r) && !isBot(r) && r.v < 10;
-  const mm = rows.filter(isMM), bots = rows.filter(isBot), whales = rows.filter(isWhale), dust = rows.filter(isDust);
-  const rest = rows.filter((r) => !isMM(r) && !isBot(r) && !isWhale(r) && !isDust(r));
-
-  // 2) k-means on the rest, k by silhouette
-  const F = rest.map(features), dim = F[0]?.length ?? 0;
+  // 1) k-means on all wallets, k (4–8) chosen by silhouette: the data decides the groups
+  const F = rows.map(features), dim = F[0].length;
   const mu = Array.from({ length: dim }, (_, j) => mean(F.map((f) => f[j])));
   const sd = Array.from({ length: dim }, (_, j) => Math.sqrt(mean(F.map((f) => (f[j] - mu[j]) ** 2))) || 1);
   const X = F.map((f) => f.map((v, j) => (v - mu[j]) / sd[j]));
-  let best = { k: 4, lab: new Int32Array(rest.length), s: -Infinity };
-  if (rest.length >= 200)
-    for (const k of [4, 5, 6]) {
-      const lab = kmeans(X, k);
-      const s = silhouette(X, lab, k);
-      if (s > best.s + 0.01) best = { k, lab, s };
-    }
-  const clusters = Array.from({ length: best.k }, () => [] as WalletRow[]);
-  rest.forEach((r, i) => clusters[best.lab[i]].push(r));
-
-  type Draft = TraderType;
-  const drafts: Draft[] = [];
-  const members = new Map<Draft, WalletRow[]>();
-  const add = (g: WalletRow[], name: string, rule: boolean) => { if (g.length) { const d = { id: 0, name, desc: "", rule, why: [] as { key: string; text: string }[], ...summarize(g, totW, totV) }; drafts.push(d); members.set(d, g); } };
-  add(mm, "Market-maker fleets", true);
-  add(bots, "High-frequency bots", true);
-  add(whales, "Whales", true);
-  const clustered: Draft[] = [];
-  for (const g of clusters) if (g.length) { const d = { id: 0, name: "", desc: "", rule: false, why: [] as { key: string; text: string }[], ...summarize(g, totW, totV) }; clustered.push(d); members.set(d, g); }
-
-  // names for the clustered groups: most distinctive trait first, each name once
-  const restMed = summarize(rest, totW, totV);
-  const rules: { name: string; score: (t: Draft) => number }[] = [
-    { name: "Big traders", score: (t) => (t.med.volume >= Math.max(50_000, restMed.med.volume * 20) ? 6 + lg(t.med.volume) / 3 : -1) },
-    { name: "Crypto-stock traders", score: (t) => (t.mean.crypto > 0.5 ? 5 + t.mean.crypto : -1) },
-    { name: "Meme-stock traders", score: (t) => (t.mean.meme > 0.4 ? 5 + t.mean.meme : -1) },
-    { name: "Active traders", score: (t) => (t.med.days >= Math.max(5, restMed.med.days * 3) ? 4.5 + lg(t.med.days) : -1) },
-    { name: "Buyers", score: (t) => (t.mean.netBuy > 0.6 ? 4 + t.mean.netBuy : -1) },
-    { name: "Sellers", score: (t) => (t.mean.netBuy < -0.6 ? 4 - t.mean.netBuy : -1) },
-    { name: "Weekend traders", score: (t) => (t.mean.weekend > 0.45 ? 3.5 + t.mean.weekend : -1) },
-    { name: "App users", score: (t) => (t.mean.agg > 0.6 ? 3 + t.mean.agg : -1) },
-    { name: "One-time traders", score: (t) => (t.med.days <= 1 && t.med.trades <= 3 ? 2.5 : -1) },
-    { name: "Micro-traders", score: (t) => (t.med.avgTrade < 25 ? 3 + (25 - t.med.avgTrade) / 25 : -1) },
-    { name: "Casual traders", score: () => 1 },
-    { name: "Mixed traders", score: () => 0.5 },
-    { name: "Other traders", score: () => 0.1 },
-  ];
-  const used = new Set<string>();
-  const strength = (t: Draft) => Math.max(...rules.map((r) => r.score(t)));
-  for (const t of [...clustered].sort((a, b) => strength(b) - strength(a))) {
-    const pick = rules.filter((r) => !used.has(r.name)).map((r) => ({ r, s: r.score(t) })).sort((a, b) => b.s - a.s)[0];
-    used.add(pick.r.name);
-    t.name = (pick.r.name === "Buyers" || pick.r.name === "Sellers") && t.med.days <= 1 ? `One-time ${pick.r.name.toLowerCase()}` : pick.r.name;
+  let best = { k: 4, lab: kmeans(X, 4), s: -Infinity };
+  best.s = silhouette(X, best.lab, 4);
+  for (const k of [5, 6, 7, 8]) {
+    const lab = kmeans(X, k);
+    const s = silhouette(X, lab, k);
+    if (s > best.s + 0.01) best = { k, lab, s };
   }
-  drafts.push(...clustered.sort((a, b) => b.volume - a.volume));
-  add(dust, "Dust & test trades", true);
+  const idx = Array.from({ length: best.k }, () => [] as number[]);
+  best.lab.forEach((c, i) => idx[c].push(i));
 
-  // descriptions
-  for (const t of drafts) {
+  // 2) per group: summary, centre in z-scores, then words from the vocabulary
+  const groups = idx.filter((g) => g.length).map((g) => {
+    const z = Object.fromEntries(FEATURES.map((f, j) => [f, mean(g.map((i) => X[i][j]))])) as Z;
+    const sum = summarize(g.map((i) => rows[i]), totW, totV);
+    return { g, z, sum, named: nameGroup(sum, z) };
+  });
+  // the same name twice: give those groups a third word, else number them
+  for (let extra = 3; extra <= 4; extra++) {
+    const count = new Map<string, number>();
+    for (const x of groups) count.set(x.named.name, (count.get(x.named.name) ?? 0) + 1);
+    for (const x of groups) if (count.get(x.named.name)! > 1 && x.named.spare > 0) x.named = nameGroup(x.sum, x.z, extra);
+  }
+  const seen = new Map<string, number>();
+  for (const x of groups) { const n = (seen.get(x.named.name) ?? 0) + 1; seen.set(x.named.name, n); if (n > 1) x.named.name += ` ${n}`; }
+  groups.sort((a, b) => b.sum.volume - a.sum.volume);
+  if (process.env.TT_DEBUG)
+    for (const x of groups) console.log(x.named.name, x.g.length, JSON.stringify(Object.fromEntries(Object.entries(x.z).map(([k, v]) => [k, Math.round(v * 100) / 100]))), JSON.stringify({ ...x.sum.med, ...x.sum.mean }));
+
+  const drafts: TraderType[] = [], members = new Map<TraderType, WalletRow[]>(), usedWords: Word[][] = [];
+  for (const x of groups) {
+    const t = x.sum;
     const bits = [
       t.med.days <= 1 ? "1 day" : `${num(t.med.days)} active days`,
       `${num(t.med.trades)} trade${t.med.trades === 1 ? "" : "s"}`,
       `${usd(t.med.avgTrade)} per trade`,
     ];
-    if (t.med.perDay >= 20) bits.push(`${num(t.med.perDay)} trades per active day`);
-    if (t.mean.mm > 0.5) bits.push(`${pct(t.mean.mm)} via market makers`);
-    else if (t.mean.agg > 0.5) bits.push(`${pct(t.mean.agg)} via apps`);
-    if (t.mean.crypto > 0.4) bits.push(`${pct(t.mean.crypto)} crypto stocks`);
-    if (t.mean.meme > 0.3) bits.push(`${pct(t.mean.meme)} meme stocks`);
-    if (Math.abs(t.mean.netBuy) > 0.5) bits.push(t.mean.netBuy > 0 ? "mostly buys" : "mostly sells");
-    t.desc = `Typically ${bits.join(" · ")}`;
+    const d: TraderType = { id: drafts.length, name: x.named.name, desc: `Typically ${bits.join(" · ")}`, persona: x.named.persona, line: x.named.line, tags: x.named.used.map((w) => w.word), why: [], ...t };
+    drafts.push(d);
+    members.set(d, x.g.map((i) => rows[i]));
+    usedWords.push(x.named.used);
   }
-  const types = drafts.map((t, i) => ({ ...t, id: i }));
+  const types = drafts;
 
   // t-SNE map on a stratified sample (up to 100 wallets per type), on all features plus market-maker share and trade count
-  const emb = (r: WalletRow) => [...features(r), r.mm, lg(r.tr)];
+  const emb = (r: WalletRow) => [...features(r), lg(r.tr)];
   const E = rows.map(emb), ed = E[0].length;
   const emu = Array.from({ length: ed }, (_, j) => mean(E.map((f) => f[j])));
   const esd = Array.from({ length: ed }, (_, j) => Math.sqrt(mean(E.map((f) => (f[j] - emu[j]) ** 2))) || 1);
@@ -322,7 +367,7 @@ export function buildTraderTypes(rows: WalletRow[], firstDay: string | null): Tr
 
   // "what sets each group apart": value per type and a score vs all wallets (log ratio for sizes, difference for shares)
   const all = summarize(rows, totW, totV);
-  const col = (key: string, label: string, get: (t: Omit<TraderType, "id" | "name" | "desc" | "rule" | "why">) => number, fmt: (v: number) => string, kind: "log" | "share" | "signed"): Trait => {
+  const col = (key: string, label: string, get: (t: Summary) => number, fmt: (v: number) => string, kind: "log" | "share" | "signed"): Trait => {
     const base = get(all);
     const raw = types.map((t) => (kind === "log" ? lg(get(t) + 1) - lg(base + 1) : get(t) - base));
     const max = Math.max(...raw.map(Math.abs)) || 1;
@@ -344,7 +389,7 @@ export function buildTraderTypes(rows: WalletRow[], firstDay: string | null): Tr
   ];
 
   // why each group is a group: the rule (if any), then the 3 traits that differ most from the average wallet
-  type G = Omit<TraderType, "id" | "name" | "desc" | "rule" | "why">;
+  type G = Summary;
   const facts: { key: string; get: (t: G) => number; kind: "log" | "share" | "signed"; say: (v: number, b: number, t: G) => string }[] = [
     { key: "volume", get: (t) => t.med.volume, kind: "log", say: (v, b) => `Typical total volume ${usd(v)}, ${times(v, b)} the typical wallet (${usd(b)})` },
     { key: "trades", get: (t) => t.med.trades, kind: "log", say: (v, b) => `${num(v)} trades per wallet, ${times(v, b)} the typical wallet (${num(b)})` },
@@ -352,6 +397,7 @@ export function buildTraderTypes(rows: WalletRow[], firstDay: string | null): Tr
     { key: "perDay", get: (t) => t.med.perDay, kind: "log", say: (v, b) => `${num(v)} trades per active day, ${times(v, b)} the typical wallet (${num(b)})` },
     { key: "avgTrade", get: (t) => t.med.avgTrade, kind: "log", say: (v, b) => `Average trade ${usd(v)}, ${times(v, b)} the typical wallet (${usd(b)})` },
     { key: "stocks", get: (t) => t.med.stocks, kind: "log", say: (v, b) => `Trades ${num(v)} different stock${v === 1 ? "" : "s"} (typical wallet: ${num(b)})` },
+    { key: "regularity", get: (t) => t.mean.regularity, kind: "share", say: (v, b) => `Trades on ${pct(v)} of the days between first and last trade (all wallets: ${pct(b)})` },
     { key: "weekend", get: (t) => t.mean.weekend, kind: "share", say: (v, b) => `${pct(v)} of volume on weekends (all wallets: ${pct(b)})` },
     { key: "agg", get: (t) => t.mean.agg, kind: "share", say: (v, b) => `${pct(v)} of trades via apps and aggregators (all wallets: ${pct(b)})` },
     { key: "mm", get: (t) => t.mean.mm, kind: "share", say: (v, b) => `${pct(v)} of trades via market-maker contracts (all wallets: ${pct(b)})` },
@@ -359,32 +405,22 @@ export function buildTraderTypes(rows: WalletRow[], firstDay: string | null): Tr
     { key: "crypto", get: (t) => t.mean.crypto, kind: "share", say: (v, b) => `${pct(v)} of volume in crypto stocks like MSTR and HOOD (all wallets: ${pct(b)})` },
     { key: "meme", get: (t) => t.mean.meme, kind: "share", say: (v, b) => `${pct(v)} of volume in meme stocks like GME and AMC (all wallets: ${pct(b)})` },
   ];
-  const ruleOf: Record<string, { text: (t: G) => string; skip: string }> = {
-    "Market-maker fleets": { text: (t) => `${pct(t.mean.mm)} of trades through a market maker's contract (rule: more than 80%)`, skip: "mm" },
-    "High-frequency bots": { text: (t) => `${num(t.med.perDay)} trades per active day (rule: 20+ per day on at least 5 days)`, skip: "perDay" },
-    Whales: { text: (t) => `Traded $1M or more (typical wallet in this group: ${usd(t.med.volume)})`, skip: "volume" },
-    "Dust & test trades": { text: (t) => `Traded less than $10 in total (typical: ${usd(t.med.volume)})`, skip: "volume" },
-  };
-  // the trait a clustered group is named after always comes first
-  const nameKey: Record<string, string> = {
-    "Weekend traders": "weekend", "Crypto-stock traders": "crypto", "Meme-stock traders": "meme", "App users": "agg", "Micro-traders": "avgTrade",
-    "Active traders": "days", "Big traders": "volume", Buyers: "netBuy", Sellers: "netBuy", "One-time buyers": "netBuy", "One-time sellers": "netBuy", "One-time traders": "days",
-  };
-  for (const t of types) {
-    const rule = ruleOf[t.name];
+  // why each group got its name: first the traits behind its words, then other traits that differ clearly from all wallets (max 4)
+  types.forEach((t, ti) => {
+    const nameFacts = usedWords[ti].map((w) => w.fact);
     const ranked = facts
-      .filter((f) => f.key !== rule?.skip)
       .map((f) => {
         const v = f.get(t), b = f.get(all);
         const mag = f.kind === "log" ? Math.abs(lg(v + 1) - lg(b + 1)) : f.kind === "signed" ? Math.max(0, Math.abs(v) - 0.3) * 2 : Math.abs(v - b) * 2;
-        return { f, v, b, mag };
+        const named = nameFacts.indexOf(f.key);
+        return { f, v, b, mag, named };
       })
-      .filter((x) => x.mag >= 0.3 || x.f.key === nameKey[t.name])
-      .sort((a, b) => (b.f.key === nameKey[t.name] ? 1 : 0) - (a.f.key === nameKey[t.name] ? 1 : 0) || b.mag - a.mag)
-      .slice(0, rule ? 2 : 3);
-    t.why = [...(rule ? [{ key: rule.skip, text: rule.text(t) }] : []), ...ranked.map((x) => ({ key: x.f.key, text: x.f.say(x.v, x.b, t) }))];
+      .filter((x) => x.named >= 0 || x.mag >= 0.3)
+      .sort((a, b) => (a.named < 0 ? 99 : a.named) - (b.named < 0 ? 99 : b.named) || b.mag - a.mag)
+      .slice(0, Math.max(4, nameFacts.length));
+    t.why = ranked.map((x) => ({ key: x.f.key, text: x.f.say(x.v, x.b, t) }));
     if (!t.why.length) t.why = [{ key: "none", text: "No single trait stands out: these wallets sit close to the typical wallet on every feature" }];
-  }
+  });
 
   return { types, traits, points, wallets: totW, firstDay };
 }
