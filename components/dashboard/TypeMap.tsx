@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useWidth } from "../useWidth";
+import { trackEvent } from "@/lib/tracking";
 
 /** t-SNE map: each dot is a wallet (a sample per type); wallets that trade alike sit close, so types form islands. */
 export function TypeMap({ points, names }: { points: [number, number, number][]; names: string[] }) {
@@ -34,6 +35,7 @@ export function TypeMap({ points, names }: { points: [number, number, number][];
   }
   // jump to the type's description card below, with a short highlight
   const open = (i: number) => {
+    trackEvent("click", "trader-types-map", names[i]);
     const el = document.getElementById(`type-${i}`);
     if (!el) return;
     el.scrollIntoView({ behavior: "smooth", block: "start" });

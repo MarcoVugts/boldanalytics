@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { toPng } from "html-to-image";
+import { trackEvent } from "@/lib/tracking";
 import { Logo } from "./Logo";
 import { ExportContext } from "./ExportContext";
 
@@ -86,6 +87,7 @@ export function ShareCard({
         width: EXPORT_WIDTH[format],
         filter: (n) => !(n instanceof HTMLElement && n.dataset.noExport !== undefined),
       });
+      trackEvent("download", slug, `image ${format}`);
       const name = `boldanalytics-${slug}-${(pf ?? "")}${pt && pt !== pf ? `_${pt}` : ""}.png`.replace(/-\.png$/, ".png");
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], name, { type: "image/png" });
@@ -118,6 +120,7 @@ export function ShareCard({
   const card = (
     <section
       ref={frame}
+      data-chart={slug}
       className={`min-w-0 rounded-lg border border-border bg-surface-1 ${exporting ? `export-light text-ink ${portrait ? "p-9" : "p-10"}` : "p-4"}`}
       style={exporting ? { position: "fixed", left: -20000, top: 0, width: EXPORT_WIDTH[format], zIndex: -1 } : undefined}
     >

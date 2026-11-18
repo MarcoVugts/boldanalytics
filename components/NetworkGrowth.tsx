@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { GH, GW, type GrowthGraph } from "@/lib/growth-layout";
 import { usd } from "@/lib/format";
+import { trackEvent } from "@/lib/tracking";
 
 const DURATION = 16000; // ms for the full timeline
 
@@ -191,6 +192,7 @@ export function NetworkGrowth({ g }: { g: GrowthGraph }) {
   const record = async () => {
     if (rec !== null) return;
     setRecErr(null); setRec(0);
+    trackEvent("download", "network-grows", "video 1080p");
     try { await recordVideo(g, prep, setRec); } catch (e) { setRecErr((e as Error).message || "Could not record the video"); }
     setRec(null);
   };
@@ -259,7 +261,7 @@ export function NetworkGrowth({ g }: { g: GrowthGraph }) {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => { if (t >= 1) setT(0); setPlaying((p) => !p || t >= 1); }}
+            onClick={() => { if (!playing) trackEvent("play", "network-grows", t >= 1 ? "replay" : "play"); if (t >= 1) setT(0); setPlaying((p) => !p || t >= 1); }}
             className="flex h-8 items-center gap-1.5 rounded-md border border-border px-3 text-xs font-medium text-ink-2 hover:bg-surface-0 hover:text-ink"
             aria-label={playing ? "Pause" : t >= 1 ? "Replay" : "Play"}
           >

@@ -69,6 +69,8 @@ export function trackView(path: string) {
       gap: counts?.gap ?? undefined,
       ref: ref || undefined,
       utm: isNew ? (params.get("utm_source") ?? undefined) : undefined,
+      medium: isNew ? (params.get("utm_medium") ?? undefined) : undefined,
+      campaign: isNew ? (params.get("utm_campaign") ?? undefined) : undefined,
       excluded: excludedReason() ?? undefined,
     };
     try {
@@ -81,4 +83,25 @@ export function trackView(path: string) {
   const run = () => ("requestIdleCallback" in window ? window.requestIdleCallback(go, { timeout: 3000 }) : setTimeout(go, 500));
   if ((document as Document & { prerendering?: boolean }).prerendering) document.addEventListener("prerenderingchange", run, { once: true });
   else run();
+}
+
+export type EventKind = "download" | "toggle" | "hover" | "click" | "play" | "outbound";
+
+/** Interaction with a chart, a download or an outbound link, to /api/ping (same visit code and exclusions as views). */
+export function trackEvent(kind: EventKind, target: string, value?: string) {
+  if (typeof window === "undefined" || !PROD_HOSTS.test(window.location.hostname)) return;
+  const path = window.location.pathname;
+  if (/^\/(beheer|ops)(\/|$)/.test(path)) return;
+  let visit = "";
+  try {
+    visit = sessionStorage.getItem(VISIT_KEY) ?? "";
+  } catch {
+    /* no storage */
+  }
+  const body = { event: { kind, target: target.slice(0, 80), value: value?.slice(0, 80) }, path, visit: visit || undefined, excluded: excludedReason() ?? undefined };
+  try {
+    fetch("/api/ping", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), keepalive: true }).catch(() => {});
+  } catch {
+    /* never in the way */
+  }
 }

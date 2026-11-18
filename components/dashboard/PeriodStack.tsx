@@ -17,6 +17,7 @@ export function PeriodStack({
   last,
   defaultGrain = "day",
   allowTotal = true,
+  stacked = true,
   height = 300,
 }: {
   measures: Measure[];
@@ -27,11 +28,14 @@ export function PeriodStack({
   last: string;
   defaultGrain?: Grain;
   allowTotal?: boolean;
+  /** false: always one total bar (no split, legend or % share), e.g. for a single series */
+  stacked?: boolean;
   height?: number;
 }) {
   const [g, setG] = useState<Grain>(defaultGrain);
   const [mi, setMi] = useState(0);
-  const [split, setSplit] = useState(true);
+  const [splitOn, setSplit] = useState(true);
+  const split = stacked && splitOn;
   const [share, setShare] = useState(false);
   const m = measures[mi];
   const series: Series[] = groups.map((gr) => ({ key: gr.label ?? gr.key, color: gr.color }));
@@ -57,7 +61,7 @@ export function PeriodStack({
       <div className="flex flex-wrap items-center gap-2">
         <Toggle label="Period" options={GRAINS} value={g} onChange={setG} />
         {measures.length > 1 && <Toggle label="Show" options={measures.map((x, i) => ({ key: i, label: x.label }))} value={mi} onChange={setMi} />}
-        {allowTotal && <Toggle label="Split" options={[{ key: false, label: "Total" }, { key: true, label: `By ${groupLabel}` }]} value={split} onChange={setSplit} />}
+        {allowTotal && stacked && <Toggle label="Split" options={[{ key: false, label: "Total" }, { key: true, label: `By ${groupLabel}` }]} value={split} onChange={setSplit} />}
         {split && <Toggle label="Scale" options={[{ key: false, label: m.unit === "usd" ? "USD" : "Count" }, { key: true, label: "% share" }]} value={share} onChange={setShare} />}
       </div>
       {split && (
