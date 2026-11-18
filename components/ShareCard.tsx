@@ -107,7 +107,7 @@ export function ShareCard({
   }
 
   const portrait = exporting && format === "portrait";
-  const subText = portrait && exportSub !== undefined ? exportSub : sub && exporting ? sub.replace(/\s*Hover[^.]*\./g, "") : sub; // no hover hints in an image
+  const subText = portrait && exportSub !== undefined ? exportSub : sub && exporting ? sub.replace(/\s*(Hover|Click)[^.]*\./g, "") : sub; // no hover hints in an image
   const footerNote = (
     <>
       <div>Data via Dune{period ? ` · ${period} (UTC)` : ""}</div>

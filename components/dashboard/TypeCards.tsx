@@ -10,7 +10,7 @@ export function TypeCards({ types }: { types: TraderType[] }) {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {types.map((t) => (
-        <section key={t.id} className="row-span-6 grid grid-rows-subgrid gap-0 rounded-lg border border-border bg-surface-1 p-4">
+        <section key={t.id} id={`type-${t.id}`} className="scroll-mt-24 row-span-6 grid grid-rows-subgrid gap-0 rounded-lg border border-border bg-surface-1 p-4">
           <div className="flex items-start gap-3">
             <PersonaIcon persona={t.persona} color={`var(--cat-${t.id + 1})`} size={44} />
             <div className="min-w-0 flex-1">

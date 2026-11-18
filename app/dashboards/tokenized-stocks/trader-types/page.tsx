@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { ShareCard } from "@/components/ShareCard";
-import { TypeBubbles } from "@/components/dashboard/TypeBubbles";
 import { TypeMap } from "@/components/dashboard/TypeMap";
 import { TraitGrid } from "@/components/dashboard/TraitGrid";
 import { TypeCards } from "@/components/dashboard/TypeCards";
@@ -25,11 +24,8 @@ export default async function TraderTypes() {
           from a fixed list of words, one per trait it clearly stands out on (see below).
         </p>
       </div>
-      <ShareCard slug="trader-types-map" {...range} title="Trader types at a glance" sub="Every dot is a wallet; similar wallets cluster together into the types">
+      <ShareCard slug="trader-types-map" {...range} title="Trader types at a glance" sub="Every dot is a wallet; similar wallets cluster together into the types. Click a type’s area for its description.">
         <TypeMap points={tt.points} names={tt.types.map((t) => t.name)} />
-      </ShareCard>
-      <ShareCard slug="trader-types-size" {...range} title="Size of each type" sub="Each bubble is a type: where its typical wallet sits, and how many wallets it holds">
-        <TypeBubbles types={tt.types} />
       </ShareCard>
       <ShareCard slug="trader-types-traits" exportZoom={1} {...range} title="What sets each type apart" sub="The typical value per type; colour shows how far it is from the average wallet">
         <TraitGrid types={tt.types} traits={tt.traits} />
